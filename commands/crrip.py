@@ -1,3 +1,5 @@
+from twisted.internet.defer import returnValue
+
 config = {
     "access": "admin",
     "help": ".crrip [contents] [quality] [episode] [series] || Contents is subs, video or both. Quality is 360, 480, 720, or 1080. Series uses CR's naming"
@@ -26,3 +28,5 @@ def command(guid, manager, irc, channel, user, contents, quality, episode, show)
     video = contents in ("video", "both")
     yield manager.master.modules["crunchy"].rip(guid, data, quality, video, subs)
     irc.msg(channel, u"Ripping of {} {} [{}p] was successful".format(show.name, key, quality))
+
+    returnValue(show.name)

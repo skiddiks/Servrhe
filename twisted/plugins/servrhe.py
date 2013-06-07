@@ -1,24 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from twisted.application import internet, service
-from twisted.internet import defer, protocol, reactor
+from twisted.internet import defer, reactor
 from twisted.plugin import IPlugin
 from twisted.python import log, usage
 from twisted.web import client, server, resource
 from zope.interface import implements
 import copy, functools, inspect, pkgutil, sys, txmongo
-
-class QuietHTTP11ClientFactory(client._HTTP11ClientFactory):
-    noisy = False
-
-class QuietHTTPConnectionPool(client.HTTPConnectionPool):
-    _factory = QuietHTTP11ClientFactory
-
-class Agent(client.Agent):
-    def __init__(self, reactor, pool=None, **kwargs):
-        if pool is None:
-            pool = QuietHTTPConnectionPool(reactor, False)
-        client.Agent.__init__(self, reactor, pool=pool, **kwargs)
 
 class Options(usage.Options):
     optParameters = [
@@ -27,18 +15,19 @@ class Options(usage.Options):
         ["dbname", "dbn", "ircbot", "The MongoDB database name"],
         ["irchost", "ih", "irc.rizon.net", "The IRC server hostname"],
         ["ircport", "ip", 6667, "The IRC server port", int],
-        ["webport", "wp", 8080, "The webserver port", int],
+        ["webport", "wp", 8091, "The webserver port", int],
         ["moddir", "m", "modules", "The module directory"]
     ]
 
 
 class Master(service.MultiService):
-    def __init__(self, moddir, dbhost, dbport, dbname):
+    def __init__(self, options):
         service.MultiService.__init__(self)
-        self.moddir = moddir
-        self.dbhost = dbhost
-        self.dbport = dbport
-        self.dbname = dbname
+        self.moddir = options["moddir"]
+        self.dbhost = options["dbhost"]
+        self.dbport = options["dbport"]
+        self.dbname = options["dbname"]
+        self.options = options
         self._db = None
         self.db = None
         self.modules = {}
@@ -48,7 +37,8 @@ class Master(service.MultiService):
 
     @defer.inlineCallbacks
     def startService(self):
-        self.agent = Agent(reactor)
+        self.agent = client.Agent(reactor, connectTimeout=5)
+        self.agent._pool._factory.noisy = False
         self._db = yield txmongo.MongoConnectionPool(self.dbhost, self.dbport)
         self.db = getattr(self._db, self.dbname)
         yield self.loadModules()
@@ -158,21 +148,6 @@ class Web(server.Site):
         _resource = self.master.modules["web"] if "web" in self.master.modules else self.resource
         return resource.getChildForRequest(_resource, request)
 
-class IRC(protocol.ReconnectingClientFactory):
-    maxDelay = 5 * 60
-
-    def __init__(self, master):
-        self.master = master
-        master.irc = self
-        self.connection = None
-
-    def buildProtocol(self, addr):
-        p = self.master.modules["irc"]
-        if p.connected:
-            return
-        p.factory = self
-        return p
-
 class ServiceMaker(object):
     implements(service.IServiceMaker, IPlugin)
     tapname = "servrhe"
@@ -180,13 +155,10 @@ class ServiceMaker(object):
     options = Options
 
     def makeService(self, options):
-        master = Master(options["moddir"], options["dbhost"], options["dbport"], options["dbname"])
+        master = Master(options)
 
         web = Web(master)
         internet.TCPServer(options["webport"], web).setServiceParent(master)
-
-        irc = IRC(master)
-        internet.TCPClient(options["irchost"], options["ircport"], irc).setServiceParent(master)
 
         return master
 

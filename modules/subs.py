@@ -40,6 +40,7 @@ class Module(object):
         return intToTime(i, short)
     
     def getFonts(self, folder, filename):
+        exception = self.master.modules["commands"].exception
         subs = SubParser(os.path.join(folder, filename))
         styles = dict([(x["Name"], x["Fontname"]) for x in subs.styles.values()])
         fonts = set()
@@ -47,7 +48,7 @@ class Module(object):
             if event["key"] != "Dialogue":
                 continue
             if event["Style"] not in styles:
-                raise exception(u"Invalid style on line {:03d}: {}", line + 1, event["Style"])
+                raise exception(u"Invalid style on line {:03d}: {}".format(line + 1, event["Style"]))
             fonts.add(styles[event["Style"]])
             # Warning: This will catch all instances of \fnXXX, not just ASS tags
             fonts |= set(re.findall("\\fn([^\\}]+)", event["Text"]))

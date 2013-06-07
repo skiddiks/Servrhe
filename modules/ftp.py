@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 from twisted.internet import reactor, protocol
 from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
+from twisted.internet.error import TimeoutError
 from twisted.internet.protocol import ClientCreator
-from twisted.protocols.ftp import FTPClient, FTPFileListProtocol
+from twisted.protocols.ftp import CommandFailed, FTPClient, FTPFileListProtocol
 from datetime import datetime as dt
 import fnmatch, os, shutil
 
@@ -75,7 +76,13 @@ class Module(object):
             self.connections -= 1
             raise exception(u"No FTP user, pass, host or port in config")
 
-        ftp = yield ClientCreator(reactor, FTPClient, user.encode("utf8"), passwd.encode("utf8")).connectTCP(host, int(port))
+        try:
+            ftp = yield ClientCreator(reactor, FTPClient, user.encode("utf8"), passwd.encode("utf8")).connectTCP(host, int(port))
+
+        except TimeoutError:
+            self.connections -= 1
+            raise exception(u"Connection to FTP server timed out. Try again.")
+
         returnValue(ftp)
 
     @inlineCallbacks
@@ -109,6 +116,12 @@ class Module(object):
             downloader = Downloader(os.path.join(destination, filename))
             yield ftp.retrieveFile(filename.encode("utf8"), downloader)
 
+        except TimeoutError:
+            raise exception(u"Connection to FTP server timed out. Try again.")
+
+        except CommandFailed:
+            raise exception(u"FTP a shit. Try again.")
+
         finally:
             yield self.releaseConnection(ftp)
 
@@ -136,6 +149,12 @@ class Module(object):
 
             filelist = FTPFileListProtocol()
             yield ftp.list(".", filelist)
+
+        except TimeoutError:
+            raise exception(u"Connection to FTP server timed out. Try again.")
+
+        except CommandFailed:
+            raise exception(u"FTP a shit. Try again.")
 
         finally:
             yield self.releaseConnection(ftp)
@@ -167,6 +186,12 @@ class Module(object):
                 sender.transport.write(f.read())
             sender.finish()
             yield finish
+
+        except TimeoutError:
+            raise exception(u"Connection to FTP server timed out. Try again.")
+
+        except CommandFailed:
+            raise exception(u"FTP a shit. Try again.")
 
         finally:
             yield self.releaseConnection(ftp)
@@ -279,6 +304,12 @@ class Module(object):
                 sender.finish()
                 yield finish
 
+        except TimeoutError:
+            raise exception(u"Connection to FTP server timed out. Try again.")
+
+        except CommandFailed:
+            raise exception(u"FTP a shit. Try again.")
+
         finally:
             yield self.releaseConnection(ftp)
 
@@ -299,6 +330,12 @@ class Module(object):
             for font in fonts:
                 downloader = Downloader(os.path.join(destination, font))
                 yield ftp.retrieveFile(os.path.join(fontdir, font).encode("utf8"), downloader)
+
+        except TimeoutError:
+            raise exception(u"Connection to FTP server timed out. Try again.")
+
+        except CommandFailed:
+            raise exception(u"FTP a shit. Try again.")
 
         finally:
             yield self.releaseConnection(ftp)
@@ -346,6 +383,12 @@ class Module(object):
                     d.addErrback(lambda _: None) # Swallow FTP fail errors
                     deferreds.append(d)
                 yield DeferredList(deferreds)
+
+            except TimeoutError:
+                raise exception(u"Connection to FTP server timed out. Try again.")
+
+            except CommandFailed:
+                raise exception(u"FTP a shit. Try again.")
 
             finally:
                 for c in connections:

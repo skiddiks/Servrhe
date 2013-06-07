@@ -1,3 +1,5 @@
+from twisted.internet.defer import returnValue
+
 config = {
     "access": "admin",
     "help": ".crautorip [contents] [quality] [series] || Contents is subs, video or both. Quality is 360, 480, 720, or 1080. Series uses CR's naming"
@@ -16,3 +18,5 @@ def command(guid, manager, irc, channel, user, contents, quality, show):
     video = contents in ("video", "both")
     yield manager.master.modules["crunchy"].autodownload(show, quality, video, subs)
     irc.msg(channel, u"Set {} to autorip {} at {}p".format(series, contents, quality))
+
+    returnValue(show.name)

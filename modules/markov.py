@@ -75,7 +75,7 @@ class Module(object):
         yield self.db.insert(documents, safe=True)
 
     @inlineCallbacks
-    def ramble(self, name=None, seed=None):
+    def ramble(self, name=None, seed=None, entropy=False):
         if name:
             name = yield self.master.modules["alias"].resolve(name)
             if name not in self.ranking:
@@ -92,7 +92,10 @@ class Module(object):
                 message.append(seed)
                 message.append(after)
                 while message[0] is not None and len(message) < 80:
-                    word, _, _ = yield self.find(name, word2=message[0], word3=message[1])
+                    if entropy:
+                        word = False
+                    else:
+                        word, _, _ = yield self.find(name, word2=message[0], word3=message[1])
                     if word is False:
                         word, _, _ = yield self.find(name, word2=message[0])
                         word = None if word is False else word
@@ -105,7 +108,10 @@ class Module(object):
             message.extend(words)
 
         while message[-1] is not None and len(message) < 80:
-            _, _, word = yield self.find(name, word1=message[-2], word2=message[-1])
+            if entropy:
+                word = False
+            else:
+                _, _, word = yield self.find(name, word1=message[-2], word2=message[-1])
             if word is False:
                 _, _, word = yield self.find(name, word2=message[-1])
                 word = None if word is False else word

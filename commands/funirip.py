@@ -1,3 +1,5 @@
+from twisted.internet.defer import returnValue
+
 config = {
     "access": "admin",
     "help": ".funirip [quality] [episode] [series] || Quality is 360, 480, or 720. Series uses CR's naming"
@@ -18,6 +20,7 @@ def command(guid, manager, irc, channel, user, quality, episode, show):
     if key not in show.episodes:
         raise manager.exception("No data for that episode, try again when Funi has added it")
 
-    data = show[key]
+    data = show.episodes[key]
     yield manager.master.modules["funi"].rip(guid, data, quality)
     irc.msg(channel, u"Ripping of {} {} [{}p] was successful".format(series, key, quality))
+    returnValue(show.name)

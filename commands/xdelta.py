@@ -1,3 +1,4 @@
+from twisted.internet.defer import returnValue
 from twisted.internet.utils import getProcessOutputAndValue
 import binascii, fnmatch, os, re
 
@@ -109,3 +110,5 @@ def command(guid, manager, irc, channel, user, show, previous = False, no_chapte
     # Step 9: Upload that xdelta
     yield manager.master.modules["ftp"].put(guid, xdelta, folder)
     irc.msg(channel, u"xdelta for {} uploaded".format(show.name.english))
+
+    returnValue(fname)

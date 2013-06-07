@@ -3,17 +3,15 @@ import datetime
 
 config = {
     "access": "public",
-    "help": ".markov (--name=NAME) (--seed=SEED) (--duwang) || .markov foogi || Ramble as [name] would, utilizing markov chains"
+    "help": ".duwang (--seed=SEED) || .duwang jojo || what a beautiful Duwang"
 }
 
 cooldowns = {}
 
-def command(guid, manager, irc, channel, user, name = None, seed = None, duwang = False):
+def command(guid, manager, irc, channel, user, seed = None):
     permissions = yield manager.getPermissions(user)
     now = datetime.datetime.utcnow()
 
-    if name is not None and " " in name:
-        name = name.split(" ")[0]
     if seed is not None and " " in seed:
         seed = seed.split(" ")[0]
 
@@ -42,23 +40,8 @@ def command(guid, manager, irc, channel, user, name = None, seed = None, duwang 
             irc.notice(user, u"You just used this command, please wait {} before using it again.".format(diff))
         return
 
-    if not name:
-        cooldowns[user]["time"] = now + cooldown
-        cooldowns[user]["warnings"] = 0
-        message = yield manager.master.modules["markov"].ramble(seed=seed, entropy=duwang)
-        irc.msg(channel, message)
-        return
-
-    otherperms = yield manager.getPermissions(name)
-    if "staff" in otherperms and "staff" not in permissions:
-        cooldown *= 5
-
-    name = yield manager.master.modules["alias"].resolve(name)
-    if name not in manager.master.modules["markov"].ranking:
-        raise manager.exception(u"No data on {}".format(name))
-
     cooldowns[user]["time"] = now + cooldown
     cooldowns[user]["warnings"] = 0
-    message = yield manager.master.modules["markov"].ramble(name, seed, duwang)
+    message = manager.master.modules["duwang"].ramble(seed)
     irc.msg(channel, message)
     returnValue(message)

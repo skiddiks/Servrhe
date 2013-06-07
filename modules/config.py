@@ -33,7 +33,7 @@ class Module(object):
         try:
             result = yield self.db.save({"_id": key, "value": value}, safe=True)
         except:
-            self.log.err("Failed to save {} = {!r}".format(key, value))
+            self.err("Failed to save {} = {!r}", key, value)
             returnValue(False)
         else:
             returnValue(True)

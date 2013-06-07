@@ -1,3 +1,4 @@
+from twisted.internet.defer import returnValue
 config = {
     "access": "public",
     "help": ".commands || .commands || Lists available commands"
@@ -13,3 +14,5 @@ def command(guid, manager, irc, channel, user):
                 r.append("un{}".format(command["name"]))
     r.sort()
     irc.msg(channel, u"Available commands: {}".format(" ".join(r)))
+
+    returnValue(u" ".join(r))

@@ -1,3 +1,5 @@
+from twisted.internet.defer import returnValue
+
 config = {
     "access": "admin",
     "help": ".cache [showname] (--previous) || .cache eotena || Caches the premux for a show so that .chapters, .xdelta and .release work faster"
@@ -23,3 +25,5 @@ def command(guid, manager, irc, channel, user, show, previous = False):
     yield manager.master.modules["ftp"].cache(folder, premux)
 
     irc.msg(channel, u"{} cached.".format(premux))
+
+    returnValue(premux)

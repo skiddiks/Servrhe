@@ -1,3 +1,5 @@
+from twisted.internet.defer import returnValue
+
 config = {
     "access": "admin",
     "help": ".finished [show name] || .finished Accel World || Marks a show as released",
@@ -13,3 +15,5 @@ def command(guid, manager, irc, channel, user, show, reverse = False):
     yield manager.master.modules["showtimes"].updateTopic()
 
     irc.msg(channel, u"{} marked {}".format(show.name.english, method))
+
+    returnValue(show.name.english)

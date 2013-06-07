@@ -22,8 +22,4 @@ def command(guid, manager, irc, channel, user):
         when = manager.master.modules["utils"].dt2ts(s[0])
         irc.msg(channel, u"{} will finish airing in {} on {}".format(s[1], when, s[2]))
 
-    spess = manager.master.modules["showtimes"].shows[17]
-    diff = dt.utcfromtimestamp(spess.airtime) - now
-    if diff.total_seconds() > 0:
-        when = manager.master.modules["utils"].dt2ts(diff)
-        irc.msg(channel, u"{} will finish airing in {} on {}".format(spess.name.english, when, spess.channel))
+    return u", ".join([s[1] for s in shows])

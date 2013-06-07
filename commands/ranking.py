@@ -26,6 +26,9 @@ def command(guid, manager, irc, channel, user, name = None, refresh = False, adm
             say("{} is not a valid integer".format(name[1:]))
             return
         ranks = sorted(manager.master.modules["markov"].ranking.values(), key=lambda x: x["rank"])
+        if place >= len(ranks) or place < -1 * len(ranks):
+            say(u"There aren't that many people in the rankings")
+            return
         data = ranks[place]
         say("{} is rank #{:d} with {:,d} words".format(data["name"], data["rank"], data["lines"]))
         return

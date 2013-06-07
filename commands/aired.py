@@ -1,3 +1,4 @@
+from twisted.internet.defer import returnValue
 from datetime import datetime as dt
 
 config = {
@@ -14,3 +15,4 @@ def command(guid, manager, irc, channel, user):
     for d in data:
         aired = manager.master.modules["utils"].dt2ts(now - dt.utcfromtimestamp(d.airtime))
         irc.msg(channel, u"{} {:02d} aired {} ago on {}".format(d.name.english, d.episode.current + 1, aired, d.channel))
+    returnValue(u", ".join([d.name.english for d in data]))

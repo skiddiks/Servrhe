@@ -1,3 +1,4 @@
+from twisted.internet.defer import returnValue
 from datetime import datetime as dt
 
 config = {
@@ -24,3 +25,5 @@ def command(guid, manager, irc, channel, user, show):
         irc.msg(channel, u"Why are YOU asking? You know you've delayed episode {:02d} of {} for {}. Get on it!".format(data.episode, show.name.english, when))
     else:
         irc.msg(channel, u"Episode {:02d} of {} is at the {}, {}, as of {} ago.".format(data.episode, show.name.english, data.position, data.name, when))
+
+    returnValue(data.name)

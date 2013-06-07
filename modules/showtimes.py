@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.error import TimeoutError
 from twisted.internet.task import LoopingCall
 from collections import namedtuple
 from datetime import datetime as dt
@@ -37,7 +38,7 @@ class Module(object):
     @inlineCallbacks
     def load(self, *params, **kwargs):
         exception = self.master.modules["commands"].exception
-        base = yield self.config.get("endpoint")
+        base = yield self.config.get("endpoint", True)
         url = "/".join([base.encode("utf-8")] + [unicode(x).encode("utf-8") for x in params])
         url = urllib.quote(url,"/:")
         headers = {}
@@ -47,7 +48,10 @@ class Module(object):
             d["key"] = yield self.config.get("key")
             data = json.dumps(d)
             headers["Content-Type"] = ["application/json"]
-        body = yield self.master.modules["utils"].fetchPage(url, data, headers)
+        try:
+            body = yield self.master.modules["utils"].fetchPage(url, data, headers)
+        except TimeoutError:
+            raise exception(u"Could not connect to showtimes API")
         data = json.loads(body)
         if "status" in data and not data["status"]:
             raise exception(u"Error in showtimes API call: {}".format(data["message"]))
@@ -110,7 +114,7 @@ class Module(object):
         shows = [(s["abbr"], s["current_ep"], s["last_release"]) for s in shows]
         shows.sort(key=lambda x: x[2], reverse=True)
 
-        parts.append(u", ".join(["{} {:02d}".format(s[0], s[1]) for s in shows[:8]]))
+        parts.append(u", ".join([u"{} {:02d}".format(s[0], s[1]) for s in shows[:8]]))
         parts.append(u"Mahoyo progress: {:0.2f}%".format(topic["percentage"]))
 
         if topic["text"] is not None:

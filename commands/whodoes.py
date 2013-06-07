@@ -1,3 +1,5 @@
+from twisted.internet.defer import returnValue
+
 config = {
     "access": "public",
     "help": ".whodoes [position] [show name] || .whodoes timer Accel World || Reports who does a job for a show"
@@ -12,3 +14,4 @@ def command(guid, manager, irc, channel, user, position, show):
 
     name = getattr(show, position).name
     irc.msg(channel, u"{} is the {} for {}".format(name, position, show.name.english))
+    returnValue(name)

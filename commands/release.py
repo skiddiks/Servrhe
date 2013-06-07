@@ -1,3 +1,4 @@
+from twisted.internet.defer import returnValue
 from twisted.internet.defer import DeferredList
 from twisted.internet.utils import getProcessOutputAndValue
 import binascii, fnmatch, os, re
@@ -16,6 +17,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
 
     offset = 0 if previous else 1
     episode = show.episode.current + offset
+    comment = u"{}: {}".format(user, comment) if comment is not None else None
 
     # Step 1: Search FTP for complete episode, or premux + xdelta
     folder = "/{}/{:02d}/".format(show.folder.ftp, episode)
@@ -61,6 +63,43 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     match = re.search("(v\d+)", complete)
     version = match.group(1) if match is not None else ""
 
+    # Step 1e: Create preview image
+    try:
+        preview = yield manager.master.modules["ftp"].getLatest(folder, "*.png")
+        yield manager.master.modules["ftp"].get(folder, preview, guid)
+        os.rename(os.path.join(guid, preview), os.path.join(guid, "preview.png"))
+
+    except manager.exception:
+        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, complete)], env=os.environ)
+
+        if code != 0:
+            manager.log(out)
+            manager.log(err)
+            raise manager.exception(u"Aborted releasing {}: Couldn't extract chapters.".format(show.name.english))
+
+        chapters = [l.partition("=")[2].lower() for l in out.split("\n")]
+        chapters = [(n, {"start": manager.master.modules["subs"].timeToInt(t), "length": 0}) for n,t in zip(chapters[1::2], chapters[0::2])]
+        for a, b in zip(chapters, chapters[1:]):
+            a[1]["length"] = b[1]["start"] - a[1]["start"]
+        chapters = dict(chapters)
+
+        time = chapters["part a"]["start"] if "part a" in chapters else sorted(chapters.values(), key=lambda x: x["length"], reverse=True)[0]["start"]
+        time += 30000
+        time = manager.master.modules["subs"].intToTime(time, short=True)
+
+        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("ffmpeg"), args=["-ss", time, "-i", os.path.join(guid, complete), "-vframes", "1", os.path.join(guid, "preview.png")], env=os.environ)
+
+        if code != 0:
+            manager.log(out)
+            manager.log(err)
+            raise manager.exception(u"Aborted releasing {}: Couldn't generate preview image.".format(show.name.english))
+
+    try:
+        with open(os.path.join(guid, "preview.png"), "rb") as f:
+            preview = {"name": complete+".png", "data": f.read()}
+    except IOError:
+        raise manager.exception(u"Aborted releasing {}: Couldn't open preview image.".format(show.name.english))
+
     # Step 2: Create torrent
     irc.notice(user, u"Creating torrent")
     try:
@@ -98,7 +137,8 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
 
     # Step 9: Create blog post
     try:
-        yield manager.master.modules["blog"].createPost(show, episode, version, info_link, comment)
+        img_link = yield manager.master.modules["blog"].uploadImage(**preview)
+        yield manager.master.modules["blog"].createPost(show, episode, version, info_link, img_link, comment)
     except:
         irc.msg(channel, u"Couldn't create blog post. Continuing to release {} regardless.".format(show.name.english))
     else:
@@ -118,3 +158,8 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
 
     # Step 12: Clean up
     manager.master.modules["ftp"].uncache(premux)
+
+    # Step 13: Add to Shiroi
+    os.rename(os.path.join(guid, complete), os.path.join("/mnt/watch", complete))
+
+    returnValue(info_link)

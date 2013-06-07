@@ -2,6 +2,8 @@
 
 from collections import namedtuple
 from bs4 import UnicodeDammit
+from twisted.application import internet
+from twisted.internet import protocol
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import LoopingCall
 from twisted.words.protocols.irc import IRCClient
@@ -9,11 +11,36 @@ from twisted.words.protocols.irc import IRCClient
 dependencies = ["config"]
 
 def normalize(s):
+    if isinstance(s, unicode):
+        return s
+
     try:
-        u = UnicodeDammit.detwingle(s).decode("utf8")
+        u = s.decode("utf8")
     except:
-        u = UnicodeDammit(s, ["utf8", "windows-1252"]).unicode_markup
+        try:
+            u = (s[:-1]).decode("utf8")
+        except:
+            try:
+                u = UnicodeDammit.detwingle(s).decode("utf8")
+            except:
+                u = UnicodeDammit(s, ["utf8", "windows-1252"]).unicode_markup
+
     return u
+
+class IRC(protocol.ReconnectingClientFactory):
+    maxDelay = 5 * 60
+
+    def __init__(self, master):
+        self.master = master
+        master.irc = self
+        self.connection = None
+
+    def buildProtocol(self, addr):
+        p = self.master.modules["irc"]
+        if p.connected:
+            return
+        p.factory = self
+        return p
 
 class Module(IRCClient):
     """
@@ -45,6 +72,7 @@ class Module(IRCClient):
     motd - The server's MOTD
     """
     connected = False
+    factory = None
     lineRate = 0.400
     nick_check = None
     performLogin = 0
@@ -52,15 +80,20 @@ class Module(IRCClient):
     sourceURL = "https://github.com/Fugiman/Servrhe"
     versionEnv = "Twisted-Python"
     versionName = "Servrhe (Custom Bot)"
-    versionNum = "1.0"
+    versionNum = "4.0"
 
     def __init__(self, master):
         self.master = master
         self.config = master.modules["config"].interface("irc")
 
+        irc = IRC(master)
+        internet.TCPClient(master.options["irchost"], master.options["ircport"], irc).setServiceParent(master)
+
     def stop(self):
         if self.connected:
             self.transport.loseConnection()
+        if self.factory:
+            self.factory.stopTrying()
 
     # Connection Handling
     @inlineCallbacks

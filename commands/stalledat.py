@@ -1,3 +1,4 @@
+from twisted.internet.defer import returnValue
 from datetime import datetime as dt
 
 config = {
@@ -21,4 +22,6 @@ def command(guid, manager, irc, channel, user, victim):
         updated = dt.utcnow() - dt.utcfromtimestamp(show.updated)
         when = manager.master.modules["utils"].dt2ts(updated)
         parts.append(u"{} ({} ago)".format(show.name.english, when))
+        
     irc.msg(channel, u"{} is stalling: {}".format(victim, u", ".join(parts)))
+    returnValue(u", ".join(parts))

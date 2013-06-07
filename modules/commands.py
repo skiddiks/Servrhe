@@ -2,7 +2,7 @@
 
 from twisted.internet.defer import inlineCallbacks, maybeDeferred, returnValue
 from twisted.internet.task import LoopingCall
-import inspect, os, pkgutil, shutil, uuid
+import inspect, os, pkgutil, re, shutil, uuid
 
 dependencies = ["config", "alias", "irc"]
 
@@ -13,31 +13,31 @@ class Module(object):
     def __init__(self, master):
         self.master = master
         self.config = master.modules["config"].interface("commands")
-        self.admins = {}
         self.commands = {}
         self.exception = CommandException
         self.loadCommands()
-        self._admin_cache = LoopingCall(self.cache_admins)
-        self._admin_cache.start(60)
 
     def stop(self):
-        if self._admin_cache is not None and self._admin_cache.running:
-            self._admin_cache.stop()
-            self._admin_cache = None
+        pass
 
     @inlineCallbacks
     def getPermissions(self, user):
         irc = self.master.modules["irc"]
         alias = yield self.master.modules["alias"].resolve(user)
+        admins = yield self.config.get("admins", {})
+
+        if "banned" in admins and alias in admins["banned"]:
+            returnValue([])
+
         permissions = ["public"]
         if "#commie-staff" in irc.channels and user in irc.channels["#commie-staff"]:
             permissions.append("staff")
             rank = irc.channels["#commie-staff"][user]
             if rank >= irc.ranks.ADMIN:
                 permissions.append("admin")
-            for perm, users in self.admins.items():
-                if alias in users:
-                    permissions.append(perm)
+        for perm, users in admins.items():
+            if alias in users:
+                permissions.append(perm)
         returnValue(permissions)
 
     def getGUID(self):
@@ -46,10 +46,6 @@ class Module(object):
             guid = uuid.uuid4().hex
         os.mkdir(guid)
         return guid
-
-    @inlineCallbacks
-    def cache_admins(self):
-        self.admins = yield self.config.get("admins", {})
 
     @inlineCallbacks
     def loadCommands(self):
@@ -93,6 +89,21 @@ class Module(object):
         if not message.startswith(".") and not (message.startswith("@") and "superadmin" in perms):
             return
 
+        # Allow nested commands
+        find_nested = re.compile("(\A|[^`])`([^`](?:.*?[^`])?)`([^`]|\Z)")
+
+        match = find_nested.search(message)
+        while match:
+            subcommand = re.sub("`+", lambda x: x.group(0)[:-1], match.group(2))
+
+            result = yield self.irc_message(channel, user, subcommand)
+            if isinstance(result, Exception):
+                return
+            result = "" if result is None else result
+
+            message = message[:match.start(0)] + match.group(1) + result + match.group(3) + message[match.end(0):]
+            match = find_nested.search(message)
+
         # Parse the message into args and kwargs, respecting quoted substrings
         command_char = message[0]
         parts = message[1:].split(" ")
@@ -105,15 +116,18 @@ class Module(object):
                 name = name.replace("-","_")
                 if value:
                     if value.startswith('"'):
-                        vparts = [value[1:]]
-                        while parts:
-                            arg = parts.pop(0)
-                            if arg[-1] == '"':
-                                vparts.append(arg[:-1])
-                                break
-                            else:
-                                vparts.append(arg)
-                        value = " ".join(vparts)
+                        if value.endswith('"'):
+                            value = value[1:-1]
+                        else:
+                            vparts = [value[1:]]
+                            while parts:
+                                arg = parts.pop(0)
+                                if arg.endswith('"'):
+                                    vparts.append(arg[:-1])
+                                    break
+                                else:
+                                    vparts.append(arg)
+                            value = " ".join(vparts)
                 else:
                     value = True
                 kwargs[name] = value
@@ -124,7 +138,7 @@ class Module(object):
         while message:
             if message.startswith('"'):
                 arg, _, message = message[1:].partition('" ')
-                if not message and arg[-1] == '"':
+                if not message and arg.endswith('"'):
                     arg = arg[:-1]
                 args.append(arg)
             else:
@@ -133,6 +147,10 @@ class Module(object):
 
         # Add in admin_mode after parsing, so that users can't override it
         kwargs["admin_mode"] = command_char == "@"
+
+        # You'd be surprised how often this happens
+        if not args:
+            return
 
         # Extract command name, checking if it is a reversed command
         command = args.pop(0)
@@ -184,13 +202,17 @@ class Module(object):
         self.log("Running command: {} {} {} {} {!r} {!r}", command["name"], guid, channel, user, args, kwargs)
         self.dispatch("start", command["name"], guid, channel, user, args, kwargs)
         try:
-            yield maybeDeferred(command["command"], guid, self, irc, channel, user, *args, **kwargs)
+            result = yield maybeDeferred(command["command"], guid, self, irc, channel, user, *args, **kwargs)
         except CommandException as e:
             irc.msg(channel, unicode(e))
-        except:
+            result = e
+        except Exception as e:
             self.err("{} on behalf of {} failed unexpectedly.", command["name"], user)
             irc.msg(channel, u"Fugiman: {} on behalf of {} failed unexpectedly.".format(command["name"], user))
+            result = e
         self.dispatch("finish", guid)
 
         # Clean up
         shutil.rmtree(guid)
+
+        returnValue(result)

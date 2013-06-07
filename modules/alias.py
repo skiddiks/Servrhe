@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+import re
 
 dependencies = []
 
@@ -21,11 +22,18 @@ class Module(object):
     @inlineCallbacks
     def learn(self, master, slave):
         master, slave = master.lower(), slave.lower()
+
+        if re.match("guest\d+", master) or re.match("guest\d+", slave):
+            return
+
         mrecord = yield self.db.find({"slaves": master})
         srecord = yield self.db.find({"slaves": slave})
         mrecord = mrecord[0] if mrecord else None
         srecord = srecord[0] if srecord else None
         if mrecord and srecord:
+            # Don't merge nick groups any more, lae abused it too much
+            return
+
             slaves = mrecord["slaves"] + srecord["slaves"]
             mrecord["slaves"] = self._unique(slaves)
             mrecord["alts"].append(srecord["master"])
@@ -38,7 +46,7 @@ class Module(object):
             srecord["slaves"].append(master)
             yield self.db.save(srecord, safe=True)
         else:
-            record = {"master": master, "slaves": [master, slave], "alts": []}
+            record = {"master": master, "slaves": [master, slave]}
             yield self.db.save(record, safe=True)
 
     def _unique(self, l):
