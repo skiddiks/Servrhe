@@ -21,9 +21,9 @@ def command(guid, manager, irc, channel, user, show, previous = False):
     yield manager.master.modules["ftp"].getFromCache(folder, premux, guid)
 
     try:
-        preview = yield manager.master.modules["ftp"].getLatest(folder, "*.png")
+        preview = yield manager.master.modules["ftp"].getLatest(folder, "*.jpg")
         yield manager.master.modules["ftp"].get(folder, preview, guid)
-        os.rename(os.path.join(guid, preview), os.path.join(guid, "preview.png"))
+        os.rename(os.path.join(guid, preview), os.path.join(guid, "preview.jpg"))
 
     except manager.exception:
         out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, premux)], env=os.environ)
@@ -39,11 +39,14 @@ def command(guid, manager, irc, channel, user, show, previous = False):
             a[1]["length"] = b[1]["start"] - a[1]["start"]
         chapters = dict(chapters)
 
+        if not chapters:
+            raise manager.exception(u"Aborted previewing {}: Couldn't extract chapters.".format(show.name.english))
+
         time = chapters["part a"]["start"] if "part a" in chapters else sorted(chapters.values(), key=lambda x: x["length"], reverse=True)[0]["start"]
         time += 30000
         time = manager.master.modules["subs"].intToTime(time, short=True)
 
-        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("ffmpeg"), args=["-ss", time, "-i", os.path.join(guid, premux), "-vframes", "1", os.path.join(guid, "preview.png")], env=os.environ)
+        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("ffmpeg"), args=["-ss", time, "-i", os.path.join(guid, premux), "-vframes", "1", os.path.join(guid, "preview.jpg")], env=os.environ)
 
         if code != 0:
             manager.log(out)
@@ -51,8 +54,8 @@ def command(guid, manager, irc, channel, user, show, previous = False):
             raise manager.exception(u"Aborted previewing {}: Couldn't generate preview image.".format(show.name.english))
 
     try:
-        with open(os.path.join(guid, "preview.png"), "rb") as f:
-            preview = {"name": premux+".png", "data": f.read()}
+        with open(os.path.join(guid, "preview.jpg"), "rb") as f:
+            preview = {"name": premux+".jpg", "data": f.read()}
     except IOError:
         raise manager.exception(u"Aborted previewing {}: Couldn't open preview image.".format(show.name.english))
 

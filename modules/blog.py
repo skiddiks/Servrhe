@@ -19,7 +19,7 @@ class Module(object):
     def createPost(self, show, episode, version, info_link, img_link, comment = None):
         end = " END" if episode == show.episode.total else ""
         exception = self.master.modules["commands"].exception
-        img = '<a href="{0}"><img src="{1}-1024x576.png" alt="" width="736" height="414" class="alignnone size-large" /></a>'.format(img_link, img_link[:-4])
+        img = '<img src="{}" style="width: 100%; border-radius: 5px;" />'.format(img_link)
         comment = "<br><br>{}".format(comment.encode("utf8")) if comment is not None else ""
 
         user = yield self.config.get("user")
@@ -72,7 +72,7 @@ class Module(object):
                 passwd, # Password
                 { # Content
                     "name": name,
-                    "type": "image/png",
+                    "type": "image/jpeg",
                     "bits": xmlrpclib.Binary(data),
                     "overwrite": True
                 }
@@ -102,9 +102,6 @@ class Module(object):
         new = progress.find(class_="progress")
         old.replace_with(new)
         content = content.encode(formatter="html")
-
-        with open("mahoyo_debug.html","w") as f:
-            f.write(content)
 
         try:
             yield blog.callRemote("wp.editPost", 0, user, passwd, 8367, {"post_content": content})

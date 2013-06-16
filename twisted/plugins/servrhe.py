@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from twisted.application import internet, service
+from twisted.application import service, strports
 from twisted.internet import defer, reactor
 from twisted.plugin import IPlugin
 from twisted.python import log, usage
@@ -15,7 +15,7 @@ class Options(usage.Options):
         ["dbname", "dbn", "ircbot", "The MongoDB database name"],
         ["irchost", "ih", "irc.rizon.net", "The IRC server hostname"],
         ["ircport", "ip", 6667, "The IRC server port", int],
-        ["webport", "wp", 8091, "The webserver port", int],
+        ["web", "w", "tcp:8091", "The webserver endpoint"],
         ["moddir", "m", "modules", "The module directory"]
     ]
 
@@ -158,7 +158,7 @@ class ServiceMaker(object):
         master = Master(options)
 
         web = Web(master)
-        internet.TCPServer(options["webport"], web).setServiceParent(master)
+        strports.service(options["web"], web).setServiceParent(master)
 
         return master
 

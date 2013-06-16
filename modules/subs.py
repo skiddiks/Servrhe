@@ -41,7 +41,13 @@ class Module(object):
     
     def getFonts(self, folder, filename):
         exception = self.master.modules["commands"].exception
-        subs = SubParser(os.path.join(folder, filename))
+
+        try:
+            subs = SubParser(os.path.join(folder, filename))
+        except:
+            log.err("Problem parsing subs for {}".format(filename))
+            raise exception(u"Subfile malformed")
+
         styles = dict([(x["Name"], x["Fontname"]) for x in subs.styles.values()])
         fonts = set()
         for line, event in enumerate(subs.events):
@@ -51,7 +57,7 @@ class Module(object):
                 raise exception(u"Invalid style on line {:03d}: {}".format(line + 1, event["Style"]))
             fonts.add(styles[event["Style"]])
             # Warning: This will catch all instances of \fnXXX, not just ASS tags
-            fonts |= set(re.findall("\\fn([^\\}]+)", event["Text"]))
+            fonts |= set(re.findall(r"\\fn([^\\}]+)", event["Text"]))
         return fonts
 
     def getFontName(self, folder, filename):
@@ -117,17 +123,18 @@ class SubParser(object):
                 elif state == INFO:
                     if line[0] == ";":
                         continue
-                    key, value = line.split(": ",1)
-                    self.info[key] = value
+                    key, _, value = line.partition(": ")
+                    if value:
+                        self.info[key] = value
                 elif state == STYLE:
-                    key, value = line.split(": ",1)
+                    key, _, value = line.partition(": ")
                     if key == "Format":
                         self.style_fields = [v.strip() for v in value.split(",")]
                     elif key == "Style":
                         s = dict(zip(self.style_fields, [v.strip() for v in value.split(",", len(self.style_fields)-1)]))
                         self.styles[s["Name"]] = s
                 elif state == EVENT:
-                    key, value = line.split(": ",1)
+                    key, _, value = line.partition(": ")
                     if key == "Format":
                         self.event_fields = [v.strip() for v in value.split(",")]
                     elif key == "Dialogue" or key == "Comment":

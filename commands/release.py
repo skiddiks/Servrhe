@@ -1,7 +1,7 @@
 from twisted.internet.defer import returnValue
 from twisted.internet.defer import DeferredList
 from twisted.internet.utils import getProcessOutputAndValue
-import binascii, fnmatch, os, re
+import binascii, fnmatch, os, re, shutil
 
 config = {
     "access": "admin",
@@ -65,9 +65,9 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
 
     # Step 1e: Create preview image
     try:
-        preview = yield manager.master.modules["ftp"].getLatest(folder, "*.png")
+        preview = yield manager.master.modules["ftp"].getLatest(folder, "*.jpg")
         yield manager.master.modules["ftp"].get(folder, preview, guid)
-        os.rename(os.path.join(guid, preview), os.path.join(guid, "preview.png"))
+        os.rename(os.path.join(guid, preview), os.path.join(guid, "preview.jpg"))
 
     except manager.exception:
         out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, complete)], env=os.environ)
@@ -87,7 +87,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
         time += 30000
         time = manager.master.modules["subs"].intToTime(time, short=True)
 
-        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("ffmpeg"), args=["-ss", time, "-i", os.path.join(guid, complete), "-vframes", "1", os.path.join(guid, "preview.png")], env=os.environ)
+        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("ffmpeg"), args=["-ss", time, "-i", os.path.join(guid, complete), "-vframes", "1", os.path.join(guid, "preview.jpg")], env=os.environ)
 
         if code != 0:
             manager.log(out)
@@ -95,8 +95,8 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
             raise manager.exception(u"Aborted releasing {}: Couldn't generate preview image.".format(show.name.english))
 
     try:
-        with open(os.path.join(guid, "preview.png"), "rb") as f:
-            preview = {"name": complete+".png", "data": f.read()}
+        with open(os.path.join(guid, "preview.jpg"), "rb") as f:
+            preview = {"name": complete+".jpg", "data": f.read()}
     except IOError:
         raise manager.exception(u"Aborted releasing {}: Couldn't open preview image.".format(show.name.english))
 
@@ -160,6 +160,6 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     manager.master.modules["ftp"].uncache(premux)
 
     # Step 13: Add to Shiroi
-    os.rename(os.path.join(guid, complete), os.path.join("/mnt/watch", complete))
+    shutil.move(os.path.join(guid, complete), os.path.join("/var/www/shiroi.fugiman.com/watch", complete))
 
     returnValue(info_link)

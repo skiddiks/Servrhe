@@ -54,6 +54,7 @@ class Module(object):
         self.config = master.modules["config"].interface("ftp")
         self.connections = 0
         self.caching = []
+        self.downloader = Downloader
 
     def stop(self):
         pass

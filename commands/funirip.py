@@ -21,6 +21,9 @@ def command(guid, manager, irc, channel, user, quality, episode, show):
         raise manager.exception("No data for that episode, try again when Funi has added it")
 
     data = show.episodes[key]
+
+    irc.msg(channel, u"AIGHT M8, WE'LL GIT ZAT RIGHT UP READY FOR YA!")
     yield manager.master.modules["funi"].rip(guid, data, quality)
     irc.msg(channel, u"Ripping of {} {} [{}p] was successful".format(series, key, quality))
+    
     returnValue(show.name)

@@ -99,6 +99,7 @@ class Module(object):
         return d
 
     def getPath(self, cmd):
+        exception = self.master.modules["commands"].exception
         if os.path.isabs(cmd):
             return cmd
         exts = [""] if "." in cmd else ["",".exe",".bat"]
@@ -108,7 +109,7 @@ class Module(object):
                 r = os.path.join(p, cmd) + e
                 if os.path.isfile(r):
                     return r
-        raise Exception("No valid path found for "+cmd)
+        raise exception(u"No valid path found for {}".format(cmd))
 
     def rheinbowify(self, text):
         final = []

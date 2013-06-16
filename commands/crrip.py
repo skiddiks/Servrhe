@@ -26,6 +26,8 @@ def command(guid, manager, irc, channel, user, contents, quality, episode, show)
     data = show.episodes[key]
     subs = contents in ("subs", "both")
     video = contents in ("video", "both")
+
+    irc.msg(channel, u"AIGHT M8, WE'LL GIT ZAT RIGHT UP READY FOR YA!")
     yield manager.master.modules["crunchy"].rip(guid, data, quality, video, subs)
     irc.msg(channel, u"Ripping of {} {} [{}p] was successful".format(show.name, key, quality))
 
