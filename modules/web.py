@@ -41,7 +41,7 @@ class HttpPasswordRealm(object):
         raise NotImplementedError()
 
 def protect(level="public"):
-    users = {"fugiman": ("fuckyoulae", ("public", "admin")), "commie": ("rheisafagget", ("public",))}
+    users = {}
 
     def make(resource):
 

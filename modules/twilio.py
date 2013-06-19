@@ -20,10 +20,6 @@ class Module(object):
     def resolve(self, name):
         exception = self.master.modules["commands"].exception
         numbers = {
-            "rhexcelion": "+14696458768",
-            "fugiman": "+19197418653",
-            "release": "+15129641993",
-            "lae": "+14086869736"
         }
         if name in numbers:
             return numbers[name]

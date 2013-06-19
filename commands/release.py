@@ -5,10 +5,10 @@ import binascii, fnmatch, os, re, shutil
 
 config = {
     "access": "admin",
-    "help": ".release [show name] (--previous) (--comment=TEXT) || .release Accel World || Releases the show by uploading to DCC bots, the seedbox, Nyaa, TT, and creating the blog post. Requires a .mkv and .xdelta. Use --previous for releasing a v2.",
+    "help": ".release [show name] (--previous) (--comment=TEXT) (--preview=TIME) || Releases the show by uploading to DCC bots, the seedbox, Nyaa, TT, and creating the blog post. Requires a .mkv and .xdelta. Use --previous for releasing a v2. See .man preview for --preview help.",
 }
 
-def command(guid, manager, irc, channel, user, show, previous = False, comment = None):
+def command(guid, manager, irc, channel, user, show, previous = False, comment = None, preview = None):
     show = manager.master.modules["showtimes"].resolve(show)
     if not show.folder.ftp:
         raise manager.exception(u"No FTP folder given for {}".format(show.name.english))
@@ -18,6 +18,8 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     offset = 0 if previous else 1
     episode = show.episode.current + offset
     comment = u"{}: {}".format(user, comment) if comment is not None else None
+    preview = preview.lower() if preview is not None else None
+    hovertext = None
 
     # Step 1: Search FTP for complete episode, or premux + xdelta
     folder = "/{}/{:02d}/".format(show.folder.ftp, episode)
@@ -68,31 +70,62 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
         preview = yield manager.master.modules["ftp"].getLatest(folder, "*.jpg")
         yield manager.master.modules["ftp"].get(folder, preview, guid)
         os.rename(os.path.join(guid, preview), os.path.join(guid, "preview.jpg"))
-
+        ftp = True
     except manager.exception:
-        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, complete)], env=os.environ)
+        ftp = False
+        if preview == "ftp":
+            raise manager.exception(u"Aborted releasing {}: Couldn't find preview image on FTP".format(show.name.english))
 
-        if code != 0:
-            manager.log(out)
-            manager.log(err)
-            raise manager.exception(u"Aborted releasing {}: Couldn't extract chapters.".format(show.name.english))
+    if not ftp or (preview is not None and preview != "ftp"):
+        if preview is None or "+" in preview:
+            out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, complete)], env=os.environ)
 
-        chapters = [l.partition("=")[2].lower() for l in out.split("\n")]
-        chapters = [(n, {"start": manager.master.modules["subs"].timeToInt(t), "length": 0}) for n,t in zip(chapters[1::2], chapters[0::2])]
-        for a, b in zip(chapters, chapters[1:]):
-            a[1]["length"] = b[1]["start"] - a[1]["start"]
-        chapters = dict(chapters)
+            if code != 0:
+                manager.log(out)
+                manager.log(err)
+                raise manager.exception(u"Aborted releasing {}: Couldn't extract chapters.".format(show.name.english))
 
-        time = chapters["part a"]["start"] if "part a" in chapters else sorted(chapters.values(), key=lambda x: x["length"], reverse=True)[0]["start"]
-        time += 30000
-        time = manager.master.modules["subs"].intToTime(time, short=True)
+            chapters = [l.partition("=")[2].lower() for l in out.split("\n")]
+            chapters = [(n, {"start": manager.master.modules["subs"].timeToInt(t), "length": 0}) for n,t in zip(chapters[1::2], chapters[0::2])]
+            for a, b in zip(chapters, chapters[1:]):
+                a[1]["length"] = b[1]["start"] - a[1]["start"]
+            chapters = dict(chapters)
 
-        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("ffmpeg"), args=["-ss", time, "-i", os.path.join(guid, complete), "-vframes", "1", os.path.join(guid, "preview.jpg")], env=os.environ)
+        if preview is None:
+            time = chapters["part a"]["start"] if "part a" in chapters else sorted(chapters.values(), key=lambda x: x["length"], reverse=True)[0]["start"]
+            time += 30000
+        elif "." not in preview:
+            conversion = float(24000) / 1001
+            time = int(int(preview) / conversion * 1000)
+        elif "+" not in preview:
+            time = manager.master.modules["subs"].timeToInt(preview)
+        else:
+            chapter, _, offset = preview.partition("+")
+            if chapter not in chapters:
+                raise manager.exception(u"Aborted previewing {}: Requested chapter \"{}\" not found".format(show.name.english, chapter))
+            time = chapters[chapter]["start"] + manager.master.modules["subs"].timeToInt(offset)
+
+        if time > 20000:
+            rough_time = manager.master.modules["subs"].intToTime(time - 20000, short=True)
+            fine_time = "20.000"
+        else:
+            rough_time = "0.000"
+            fine_time = manager.master.modules["subs"].intToTime(time, short=True)
+
+        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("ffmpeg"), args=["-ss", rough_time, "-i", os.path.join(guid, complete), "-ss", fine_time, "-vframes", "1", os.path.join(guid, "preview.jpg")], env=os.environ)
 
         if code != 0:
             manager.log(out)
             manager.log(err)
             raise manager.exception(u"Aborted releasing {}: Couldn't generate preview image.".format(show.name.english))
+
+        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["tracks", os.path.join(guid, complete), "2:{}".format(os.path.join(guid, "script.ass"))], env=os.environ)
+        if code != 0:
+            manager.log(out)
+            manager.log(err)
+            raise manager.exception(u"Aborted releasing {}: Couldn't extract script.".format(show.name.english))
+
+        hovertext = manager.master.modules["subs"].getBestLine(guid, "script.ass", time)
 
     try:
         with open(os.path.join(guid, "preview.jpg"), "rb") as f:
@@ -114,9 +147,9 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     d1 = manager.master.modules["ftp"].putXDCC(guid, complete, show.folder.xdcc)
     d2 = manager.master.modules["ftp"].putSeedbox(guid, complete)
 
-    irc.notice(user, u"Uploading to XDCC and seedbox")
+    irc.notice(user, u"Uploading to seedbox and XDCC")
     yield DeferredList([d1, d2])
-    irc.notice(user, u"Uploaded to XDCC and seedbox")
+    irc.notice(user, u"Uploaded to seedbox and XDCC")
 
     # Step 5: Start seeding torrent
     yield manager.master.modules["ftp"].putTorrent(guid, torrent)
@@ -138,7 +171,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     # Step 9: Create blog post
     try:
         img_link = yield manager.master.modules["blog"].uploadImage(**preview)
-        yield manager.master.modules["blog"].createPost(show, episode, version, info_link, img_link, comment)
+        yield manager.master.modules["blog"].createPost(show, episode, version, info_link, img_link, comment, hovertext)
     except:
         irc.msg(channel, u"Couldn't create blog post. Continuing to release {} regardless.".format(show.name.english))
     else:

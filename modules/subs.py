@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
-import os, re, struct, time
+import collections, os, re, struct, time
 
 dependencies = []
 
 def timeToInt(time):
     p = time.split(":")
     c = p.pop().split(".")
-    ms = int((c.pop()+"000")[:3]) if len(p) > 1 else 0
+    ms = int((c.pop()+"000")[:3]) if len(c) > 1 else 0
     s = int(c.pop())
     m = int(p.pop()) if p else 0
     h = int(p.pop()) if p else 0
@@ -38,6 +38,9 @@ class Module(object):
 
     def intToTime(self, i, short = False):
         return intToTime(i, short)
+
+    def getParser(self, filename = None):
+        return SubParser(filename)
     
     def getFonts(self, folder, filename):
         exception = self.master.modules["commands"].exception
@@ -89,6 +92,162 @@ class Module(object):
             tags[id] = value
 
         return tags[1].decode("utf8") if 1 in tags else None
+
+    def qc(self, folder, filename):
+        exception = self.master.modules["commands"].exception
+        results = {
+            "sorted": True,
+            "total": 0,
+            "comments": 0,
+            "dialogue": 0,
+            "OP": 0,
+            "ED": 0,
+            "signs": 0,
+            "linebreaks": [],
+            "italics": [],
+            "honorifics": [],
+            "zero length": [],
+            "sign missing blur": [],
+            "oped missing blur": [],
+            "malformed": [],
+            "disjointed": [],
+            "overlap": [],
+            "gap": [],
+            "default layer": [],
+            "double space": [],
+            "inside quotes": [],
+            "outside quotes": [],
+            "jdpsetting": []
+        }
+
+        try:
+            subs = SubParser(os.path.join(folder, filename))
+        except:
+            log.err("Problem parsing subs for {}".format(filename))
+            raise exception(u"Subfile malformed")
+
+        types = collections.namedtuple("Line_Types", ["COMMENT", "DIALOGUE", "OP", "ED", "SIGN"])._make(range(5))
+        for index, line in enumerate(subs.events):
+            number = index + 1
+            text = line["Text"]
+            length = timeToInt(line["End"]) - line["time"]
+
+            # Determine type & track number of lines of each
+            if line["key"] == "Comment":
+                results["comments"] += 1
+                line_type = types.COMMENT
+            elif "defa" in line["Style"].lower() or "alt" in line["Style"].lower():
+                results["dialogue"] += 1
+                line_type = types.DIALOGUE
+            elif line["Style"].lower().startswith("op"):
+                results["OP"] += 1
+                line_type = types.OP
+            elif line["Style"].lower().startswith("ed"):
+                results["ED"] += 1
+                line_type = types.ED
+            else:
+                results["signs"] += 1
+                line_type = types.SIGN
+            
+            results["total"] += 1
+
+            # Check for missing blur
+            if text and length and r"\blur" not in text and re.match("^{[^}]*}$", text) is None and not text.startswith("{first"):
+                if line_type == types.OP or line_type == types.ED:
+                    results["oped missing blur"].append(number)
+                elif line_type == types.SIGN:
+                    results["sign missing blur"].append(number)
+
+            # Dialogue specific tests
+            if line_type == types.DIALOGUE:
+
+                # Check for default layer (may cause overlap with typesetting)
+                if int(line["Layer"]) == 0:
+                    results["default layer"].append(number)
+
+                # Check for double spaces
+                if "  " in text:
+                    results["double space"].append(number)
+
+                # Check for linebreaks
+                if r"\N" in text:
+                    results["linebreaks"].append(number)
+
+                if r"\i1" in text:
+                    results["italics"].append(number)
+
+                for honorific in ["san", "kun", "chan", "sama"]:
+                    if re.search("[a-zA-Z]-" + honorific, text):
+                        results["honorifics"].append(number)
+                        break
+
+            # Non-comment tests
+            if line_type != types.COMMENT:
+
+                # Check for zero length
+                if length == 0:
+                    results["zero length"].append(number)
+
+                # Check for malformed tags
+                for test in [r"\\\\", r"\\}", r"}}", r"{{", r"\\blur\.", r"\\bord\.", r"\\shad\.", r"\\(alpha|[1234]a)(?!&H[0-9A-Fa-f]{2}&)"]:
+                    if re.search(test, text) is not None:
+                        results["malformed"].append(number)
+                        break
+
+                # Check for disjointed tags
+                if re.search(r"{\\[^}]*}{\\[^}]*}", text) is not None:
+                    results["disjointed"].append(number)
+
+                # Compare against previous line
+                if index > 0 and subs.events[index - 1]["key"] == "Dialogue":
+                    prevline = subs.events[index - 1]
+
+                    # Ensure start times are sorted
+                    if prevline["time"] > line["time"]:
+                        results["sorted"] = False
+
+                    # Ensure lines don't flash or overlap
+                    if "defa" in line["Style"].lower() and "defa" in prevline["Style"].lower() and r"\an8" not in line["Text"] and r"\an8" not in prevline["Text"]:
+                        end = timeToInt(line["End"])
+                        prevend = timeToInt(prevline["End"])
+                        if line["time"] < prevend and prevend - line["time"] < 500 and end - prevend != 0:
+                            results["overlap"].append(number)
+                        if line["time"] > prevend and line["time"] - prevend < 200:
+                            results["gap"].append(number)
+
+                # Check quotation punctuation
+                if re.search(r"[,.!?]\"", text) is not None:
+                    results["inside quotes"].append(number)
+                if re.search(r"\"[,.!?]", text) is not None:
+                    results["outside quotes"].append(number)
+
+                # Check jdpsetting
+                if re.search(r"{\\an8\\bord[\d.]+\\pos\([\d., ]*\)}", text) is not None:
+                    results["jdpsetting"].append(number)
+
+        return results
+
+    def getBestLine(self, folder, filename, time):
+        exception = self.master.modules["commands"].exception
+
+        try:
+            subs = SubParser(os.path.join(folder, filename))
+        except:
+            log.err("Problem parsing subs for {}".format(filename))
+            raise exception(u"Subfile malformed")
+
+        lines = []
+        for line in subs.events:
+            start, end = timeToInt(line["Start"]), timeToInt(line["End"])
+            if line["key"] == "Dialogue" and start < time < end:
+                lines.append(line)
+
+        if "default" in [l["Style"].lower() for l in lines]:
+            lines = filter(lambda l: l["Style"].lower() == "default", lines)
+
+        lines.sort(key=lambda l: len(l["Text"]))
+
+        return re.sub("{[^}]*}", "", lines[0]["Text"]) if lines else None
 
 class SubParser(object):
     info_output = ("Title","PlayResX","PlayResY","ScaledBorderAndShadow","ScriptType","WrapStyle")

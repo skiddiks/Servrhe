@@ -16,10 +16,10 @@ class Module(object):
         pass
 
     @inlineCallbacks
-    def createPost(self, show, episode, version, info_link, img_link, comment = None):
+    def createPost(self, show, episode, version, info_link, img_link, comment = None, hovertext = None):
         end = " END" if episode == show.episode.total else ""
         exception = self.master.modules["commands"].exception
-        img = '<img src="{}" style="width: 100%; border-radius: 5px;" />'.format(img_link)
+        img = '<img src="{}" title="{}" style="width: 100%; border-radius: 5px;" />'.format(img_link, "" if hovertext is None else hovertext)
         comment = "<br><br>{}".format(comment.encode("utf8")) if comment is not None else ""
 
         user = yield self.config.get("user")

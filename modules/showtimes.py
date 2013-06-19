@@ -16,6 +16,7 @@ PositionObject = namedtuple("PositionObject", ["name", "done"])
 ShowObject = namedtuple("ShowObject", ["id", "name", "episode", "folder", "translator", "editor", "timer", "typesetter", "qc", "channel", "airtime", "updated", "released", "blog"])
 
 SubstatusObject = namedtuple("SubstatusObject", ["position", "name", "episode", "updated"])
+NextObject = namedtuple("NextObject", ["name", "episode", "when"])
 
 class Module(object):
     def __init__(self, master):
@@ -146,6 +147,12 @@ class Module(object):
         data = yield self.load("show", show.id, "substatus")
         updated = show.airtime + 30*60 if data["position"] in ["encoder","translator"] else data["updated"]
         o = SubstatusObject(data["position"], data["value"], data["episode"], updated)
+        returnValue(o)
+
+    @inlineCallbacks
+    def next(self, show):
+        data = yield self.load("airing", "next", show.id)
+        o = NextObject(NameObject(data["series"], data["series_jp"], ""), data["episode"], data["when"])
         returnValue(o)
 
     @inlineCallbacks

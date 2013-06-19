@@ -5,3 +5,4 @@ fonts/
 # Secrets
 modules/crunchy.py
 modules/funi.py
+modules/hulu.py
