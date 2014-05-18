@@ -19,7 +19,7 @@ from twisted.web.server import NOT_DONE_YET
 from twisted.web.template import Element, flatten, renderer, Tag, XMLString
 from collections import Counter
 
-import hmac
+import hmac, json
  
 dependencies = ["progress"]
 
@@ -190,4 +190,22 @@ class Update(Base):
         irc = self.master.modules["irc"]
         self.master.dispatch("irc", "message", u"#commie-staff", irc.nickname.decode("utf8"), u".update")
         self.master.log("Pulling changes from Github due to webhook...", cls="Web.Update")
+
+        args = json.loads(body)
+
+        FORMATS = {
+            "repo": u"\00313{}\017",
+            "branch": u"\00306{}\017",
+            "sha1": u"\00314{}\017",
+            "author": u"\00315{}\017",
+            "message": u"{}"
+        }
+        for commit in args["distinct_commits"]:
+            repo = FORMATS["repo"].format(args["repository"]["name"])
+            branch = FORMATS["branch"].format(args["ref_name"])
+            sha1 = FORMATS["sha1"].format(commit["id"][:8])
+            author = FORMATS["author"].format(commit["author"]["name"])
+            message = FORMATS["message"].format(commit["message"].partition("\n")[0])
+            irc.msg(u"#commie-staff", u"{}/{} {} {}: {}".format(repo, branch, sha1, author, message))
+
         returnValue("Success!")
