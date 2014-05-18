@@ -177,10 +177,12 @@ class Update(Base):
         if not event or not signature:
             return
 
+        hash_method, _, signature = signature.partition("=")
+
         request.content.seek(0, 0)
         body = request.content.read()
         secret = yield self.master.modules["config"].get("github", "secret")
-        generated = hmac.new(secret, body, "sha1").hexdigest()
+        generated = hmac.new(secret, body, hash_method).hexdigest()
         if event != "push" or generated != signature:
             self.master.log("Invalid Github webook event/signature. Event = {}, Signature = {}, Generated = {}", event, signature, generated, cls="Web.Update")
             return
