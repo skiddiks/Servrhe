@@ -189,3 +189,4 @@ class Update(Base):
 
         irc = self.master.modules["irc"]
         self.master.dispatch("irc", "message", u"#commie-staff", irc.nickname.decode("utf8"), u".update")
+        self.master.log("Pulling changes from Github due to webhook..." cls="Web.Update")
