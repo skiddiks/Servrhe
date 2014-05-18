@@ -163,7 +163,7 @@ class Update(Base):
     isLeaf = True
 
     def render_POST(self, request):
-        self.handle(request).addCallback(lambda r: request.write(r)).addBoth(lambda _: request.finish())
+        self.handle(request).addCallback(lambda r: request.write(r)).addErrback(lambda e: self.master.err("Error: {!s}", e, cls="Web.Update")).addBoth(lambda _: request.finish())
         return NOT_DONE_YET
 
     @inlineCallbacks
