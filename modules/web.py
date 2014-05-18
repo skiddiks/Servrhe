@@ -168,8 +168,8 @@ class Update(Base):
 
     @inlineCallbacks
     def handle(self, request):
-        event = request.requestHeaders.getRawHeaders("X-Github-Event")
-        signature = request.requestHeaders.getRawHeaders("X-Github-Signature")
+        event = request.requestHeaders.getRawHeaders("X-GitHub-Event")
+        signature = request.requestHeaders.getRawHeaders("X-Hub-Signature")
         if not event or not signature:
             returnValue("No Event or Signature header")
 
