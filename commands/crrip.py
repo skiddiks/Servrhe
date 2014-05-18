@@ -6,9 +6,6 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user, contents, quality, episode, show):
-    irc.msg(channel, u"This command is currently disabled due to the upgrade to v5. It'll return shortly. Thank you for your patience.")
-    return
-    
     if contents not in ("subs","video","both"):
         raise manager.exception("Invalid content, must be subs, video or both")
 
@@ -30,7 +27,7 @@ def command(guid, manager, irc, channel, user, contents, quality, episode, show)
     subs = contents in ("subs", "both")
     video = contents in ("video", "both")
 
-    irc.msg(channel, u"AIGHT M8, WE'LL GIT ZAT RIGHT UP READY FOR YA!")
+    irc.msg(channel, u"Downloading {} {} [{}p]".format(show.name, key, quality))
     manager.dispatch("update", guid, u"Downloading {} {} [{}p]".format(show.name, key, quality))
     yield manager.master.modules["crunchy"].rip(guid, data, quality, video, subs)
     irc.msg(channel, u"Ripping of {} {} [{}p] was successful".format(show.name, key, quality))

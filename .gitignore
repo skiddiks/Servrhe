@@ -1,13 +1,5 @@
 *.py[cod]
 
-fonts/
-
-# Secrets
-modules/crunchy.py
-modules/funi.py
-modules/hulu.py
-modules/daisuki.py
-
 # Bot stuff
 lewd/
 mahoyo/
