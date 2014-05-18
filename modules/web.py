@@ -163,19 +163,19 @@ class Update(Base):
     isLeaf = True
 
     def render_POST(self, request):
-        self.update(request)
-        return ""
+        self.update(request).addCallback(lambda r: request.write(r) and request.finish())
+        return NOT_DONE_YET
 
     @inlineCallbacks
     def update(self, request):
         event = request.requestHeaders.getRawHeaders("X-Github-Event")
         signature = request.requestHeaders.getRawHeaders("X-Github-Signature")
         if not event or not signature:
-            return "No Event or Signature header"
+            returnValue("No Event or Signature header")
 
         event, signature = event[0], signature[0]
         if not event or not signature:
-            return "Event or Signature header empty"
+            returnValue("Event or Signature header empty")
 
         hash_method, _, signature = signature.partition("=")
 
@@ -185,9 +185,9 @@ class Update(Base):
         generated = hmac.new(secret, body, hash_method).hexdigest()
         if event != "push" or generated != signature:
             self.master.log("Invalid Github webook event/signature. Event = {}, Signature = {}, Generated = {}", event, signature, generated, cls="Web.Update")
-            return "Invalid event or signature"
+            returnValue("Invalid event or signature")
 
         irc = self.master.modules["irc"]
         self.master.dispatch("irc", "message", u"#commie-staff", irc.nickname.decode("utf8"), u".update")
         self.master.log("Pulling changes from Github due to webhook...", cls="Web.Update")
-        return "Success!"
+        returnValue("Success!")
