@@ -107,7 +107,7 @@ class TwilioIncoming(Base):
     isLeaf = True
 
     def render_POST(self, request):
-        self.handle(request).addCallback(lambda r: request.write(r) and request.finish())
+        self.handle(request).addCallback(lambda r: request.write(r)).addBoth(lambda _: request.finish())
         return NOT_DONE_YET
 
     @inlineCallbacks
@@ -163,11 +163,11 @@ class Update(Base):
     isLeaf = True
 
     def render_POST(self, request):
-        self.update(request).addCallback(lambda r: request.write(r) and request.finish())
+        self.handle(request).addCallback(lambda r: request.write(r)).addBoth(lambda _: request.finish())
         return NOT_DONE_YET
 
     @inlineCallbacks
-    def update(self, request):
+    def handle(self, request):
         event = request.requestHeaders.getRawHeaders("X-Github-Event")
         signature = request.requestHeaders.getRawHeaders("X-Github-Signature")
         if not event or not signature:
