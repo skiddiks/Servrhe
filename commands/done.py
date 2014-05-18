@@ -6,13 +6,17 @@ config = {
 
 def command(guid, manager, irc, channel, user, position, show, reverse = False):
     method = "undone" if reverse else "done"
+    manager.dispatch("update", guid, u"Waiting on showtimes.getPosition")
     position = yield manager.master.modules["showtimes"].getPosition(position)
     show = manager.master.modules["showtimes"].resolve(show)
 
     if position == "qc":
         manager.exception("Can't use .done qc, you must use .finished instead")
 
-    manager.dispatch("update", guid, "Waiting on showtimes.{}".format(method))
+    manager.dispatch("update", guid, u"Waiting on showtimes.{}".format(method))
     yield getattr(manager.master.modules["showtimes"], method)(show, position)
 
-    irc.msg(channel, u"{} for {} is marked as {}".format(position, show.name.english, method))
+    manager.dispatch("update", guid, u"Waiting on showtimes.substatus")
+    data = yield manager.master.modules["showtimes"].substatus(show)
+
+    irc.msg(channel, u"{} for {} is marked as {}. Now waiting on {}".format(position, show.name.english, method, data.name))

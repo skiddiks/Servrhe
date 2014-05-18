@@ -10,10 +10,11 @@ config = {
 }
 
 endpoint = "http://api.wolframalpha.com/v2/query"
-appid = "GEURY9-WRVJ597G5P"
 
 def command(guid, manager, irc, channel, user, query):
+    appid = yield manager.config.get("wolfram_key")
     url = "{}?{}".format(endpoint, urllib.urlencode({"appid": appid, "input": query, "format": "plaintext"}))
+    manager.dispatch("update", guid, u"Querying Wolfram Alpha")
     answer = yield manager.master.modules["utils"].fetchPage(url)
     result = Result(StringIO(answer))
 

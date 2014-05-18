@@ -2,7 +2,7 @@ from twisted.internet.defer import returnValue
 
 config = {
     "access": "admin",
-    "help": ".cache [showname] (--previous) || .cache eotena || Caches the premux for a show so that .chapters, .xdelta and .release work faster"
+    "help": ".cache [showname] (--previous) || .cache eotena || Caches everything for a show so that other commands work faster"
 }
 
 def command(guid, manager, irc, channel, user, show, previous = False):
@@ -12,18 +12,12 @@ def command(guid, manager, irc, channel, user, show, previous = False):
 
     offset = 0 if previous else 1
     episode = show.episode.current + offset
-    folder = "/{}/{:02d}/".format(show.folder.ftp, episode)
+    folder = "{}/{:02d}".format(show.folder.ftp, episode)
     
-    premux = yield manager.master.modules["ftp"].getLatest(folder, "*.mkv")
-    cached = yield manager.master.modules["ftp"].isCached(premux)
+    irc.msg(channel, u"Caching {}".format(folder))
+    manager.dispatch("update", guid, u"Caching {}".format(folder))
+    yield manager.master.modules["ftp"].download(folder)
 
-    if cached:
-        raise manager.exception(u"{} already is cached. Message fugi if you need it re-cached.".format(premux))
+    irc.msg(channel, u"{} cached.".format(folder))
 
-    irc.msg(channel, u"Caching {}".format(premux))
-    manager.dispatch("update", guid, u"Caching {}".format(premux))
-    yield manager.master.modules["ftp"].cache(folder, premux)
-
-    irc.msg(channel, u"{} cached.".format(premux))
-
-    returnValue(premux)
+    returnValue(folder)

@@ -20,30 +20,49 @@ def command(guid, manager, irc, channel, user, show, previous = False, preview =
     if preview is not None:
         preview = preview.lower()
 
-    folder = "/{}/{:02d}/".format(show.folder.ftp, episode)
-    premux = yield manager.master.modules["ftp"].getLatest(folder, "*.mkv")
-    yield manager.master.modules["ftp"].getFromCache(folder, premux, guid)
+    folder = "{}/{:02d}".format(show.folder.ftp, episode)
+    manager.dispatch("update", guid, u"Caching {}".format(folder))
+    yield manager.master.modules["ftp"].download(folder)
 
-    try:
-        preview = yield manager.master.modules["ftp"].getLatest(folder, "*.jpg")
-        yield manager.master.modules["ftp"].get(folder, preview, guid)
-        os.rename(os.path.join(guid, preview), os.path.join(guid, "preview.jpg"))
-        ftp = True
-    except manager.exception:
-        ftp = False
-        if preview == "ftp":
-            raise manager.exception(u"Aborted previewing {}: Couldn't find preview image on FTP".format(show.name.english))
+    manager.dispatch("update", guid, u"Determining last modified mkv file")
+    premux = yield manager.master.modules["ftp"].getLatest(folder, "*.mkv")
+
+    manager.dispatch("update", guid, u"Downloading {}".format(premux))
+    yield manager.master.modules["ftp"].get(folder, premux, guid)
+
+    ftp = False
+    for ext in ["jpg", "jpeg", "png", "gif"]:
+        try:
+            manager.dispatch("update", guid, u"Determining last modified {} file".format(ext))
+            preview_image = yield manager.master.modules["ftp"].getLatest(folder, "*.{}".format(ext))
+            preview_ext = ext
+            manager.dispatch("update", guid, u"Downloading".format(preview_image))
+            yield manager.master.modules["ftp"].get(folder, preview_image, guid)
+            os.rename(os.path.join(guid, preview_image), os.path.join(guid, "preview.{}".format(ext)))
+            ftp = True
+            break
+        except manager.exception:
+            continue
+
+    if preview == "ftp" and not ftp:
+        raise manager.exception(u"Aborted releasing {}: Couldn't find preview image on FTP".format(show.name.english))
 
     if not ftp or (preview is not None and preview != "ftp"):
+        preview_ext = "jpg"
+
         if preview is None or "+" in preview:
             try:
+                manager.dispatch("update", guid, u"Determining last modified xml file")
                 chapters = yield manager.master.modules["ftp"].getLatest(folder, "*.xml")
+
+                manager.dispatch("update", guid, u"Downloading {}".format(chapters))
                 yield manager.master.modules["ftp"].get(folder, chapters, guid)
                 with open(os.path.join(guid, chapters), "r") as f:
                     soup = BeautifulSoup(f.read(), "xml", from_encoding="utf8")
                 out = "\n".join(["CHAPTER{0:02d}={1}\nCHAPTER{0:02d}NAME={2}".format(index + 1, e.find("ChapterTimeStart").string.encode("utf8"), e.find("ChapterString").string.encode("utf8")) for index, e in enumerate(soup("ChapterAtom"))])
 
             except Exception as e:
+                manager.dispatch("update", guid, u"Extracting chapters from premux")
                 out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, premux)], env=os.environ)
 
                 if code != 0:
@@ -58,7 +77,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, preview =
             chapters = dict(chapters)
 
             if not chapters:
-                raise manager.exception(u"Aborted previewing {}: Couldn't extract chapters.".format(show.name.english))
+                raise manager.exception(u"Aborted previewing {}: No chapters to make a preview image from.".format(show.name.english))
 
         if preview is None:
             time = chapters["part a"]["start"] if "part a" in chapters else sorted(chapters.values(), key=lambda x: x["length"], reverse=True)[0]["start"]
@@ -81,7 +100,13 @@ def command(guid, manager, irc, channel, user, show, previous = False, preview =
             rough_time = "0.000"
             fine_time = manager.master.modules["subs"].intToTime(time, short=True)
 
-        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("ffmpeg"), args=["-ss", rough_time, "-i", os.path.join(guid, premux), "-ss", fine_time, "-vframes", "1", os.path.join(guid, "preview.jpg")], env=os.environ)
+        extraargs = []
+        if preview is None:
+            extraargs.extend(["-vf", "select='eq(pict_type,I)'", "-vsync", "2"])
+        #extraargs.extend(["-vf", "colormatrix=bt709:bt601"])
+
+        manager.dispatch("update", guid, u"Generating preview image")
+        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("avconv"), args=["-ss", rough_time, "-i", os.path.join(guid, premux), "-ss", fine_time] + extraargs + ["-vframes", "1", os.path.join(guid, "preview.{}".format(preview_ext))], env=os.environ)
 
         if code != 0:
             manager.log(out)
@@ -89,11 +114,13 @@ def command(guid, manager, irc, channel, user, show, previous = False, preview =
             raise manager.exception(u"Aborted previewing {}: Couldn't generate preview image.".format(show.name.english))
 
         try:
+            manager.dispatch("update", guid, u"Determining last modified ass file")
             script = yield manager.master.modules["ftp"].getLatest(folder, "*.ass")
         except:
             script = None
 
         if script is not None:
+            manager.dispatch("update", guid, u"Downloading {}".format(script))
             yield manager.master.modules["ftp"].get(folder, script, guid)
             hovertext = manager.master.modules["subs"].getBestLine(guid, script, time)
             if hovertext is not None:
@@ -104,12 +131,17 @@ def command(guid, manager, irc, channel, user, show, previous = False, preview =
             irc.msg(channel, "No script on FTP to find a line from")
 
     try:
-        with open(os.path.join(guid, "preview.jpg"), "rb") as f:
-            preview = {"name": premux+".jpg", "data": f.read()}
+        with open(os.path.join(guid, "preview.{}".format(preview_ext)), "rb") as f:
+            preview = {"name": (u"{}.{}".format(premux, preview_ext)).encode("utf8"), "data": f.read()}
     except IOError:
         raise manager.exception(u"Aborted previewing {}: Couldn't open preview image.".format(show.name.english))
 
+    manager.dispatch("update", guid, u"Uploading {} to blog".format(preview["name"]))
     img_link = yield manager.master.modules["blog"].uploadImage(**preview)
+
+    manager.dispatch("update", guid, u"Uploading preview image to FTP")
+    yield manager.master.modules["ftp"].put(guid, u"preview.{}".format(preview_ext), folder)
+    yield manager.master.modules["ftp"].upload(folder)
 
     irc.msg(channel, "Preview image: {}".format(img_link))
 

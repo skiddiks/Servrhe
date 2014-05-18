@@ -7,7 +7,12 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user, name, reverse = False, admin_mode = False):
+    irc.msg(channel, u"This command is currently disabled due to the upgrade to v5. It'll return shortly. Thank you for your patience.")
+    return
+    
+    manager.dispatch("update", guid, u"Waiting on alias.resolve")
     alias = yield manager.master.modules["alias"].resolve(name)
+    manager.dispatch("update", guid, u"Fetching admin list")
     admins = yield manager.config.get("admins", {})
 
     if admin_mode:
@@ -23,6 +28,7 @@ def command(guid, manager, irc, channel, user, name, reverse = False, admin_mode
         banned.add(alias)
 
     admins["banned"] = list(banned)
+    manager.dispatch("update", guid, u"Saving admin list")
     yield manager.config.set("admins", admins)
 
     listing = u", ".join(admins["banned"])

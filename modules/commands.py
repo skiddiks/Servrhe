@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from twisted.internet.defer import inlineCallbacks, maybeDeferred, returnValue
+from twisted.internet.defer import inlineCallbacks, maybeDeferred, returnValue, CancelledError
 from twisted.internet.task import LoopingCall
+from txcoroutine import coroutine
 import inspect, os, pkgutil, re, shutil, uuid
 
 dependencies = ["config", "alias", "irc"]
@@ -23,22 +24,13 @@ class Module(object):
     @inlineCallbacks
     def getPermissions(self, user):
         irc = self.master.modules["irc"]
-        alias = yield self.master.modules["alias"].resolve(user)
-        admins = yield self.config.get("admins", {})
+        user = yield self.master.modules["alias"].resolve(user)
+        perms = yield self.master.modules["db"].alias2permissions(user)
 
-        if "banned" in admins and alias in admins["banned"]:
+        if "banned" in perms:
             returnValue([])
-
-        permissions = ["public"]
-        if "#commie-staff" in irc.channels and user in irc.channels["#commie-staff"]:
-            permissions.append("staff")
-            rank = irc.channels["#commie-staff"][user]
-            if rank >= irc.ranks.ADMIN:
-                permissions.append("admin")
-        for perm, users in admins.items():
-            if alias in users:
-                permissions.append(perm)
-        returnValue(permissions)
+        else:
+            returnValue(perms + ["public"])
 
     def getGUID(self):
         guid = uuid.uuid4().hex
@@ -58,8 +50,8 @@ class Module(object):
                 command = getattr(__import__(path, fromlist=[name.encode("utf8")]), name)
                 reload(command)
                 command.config["name"] = name
-                command.config["command"] = inlineCallbacks(command.command) if inspect.isgeneratorfunction(command.command) else command.command
-                args, _, _, kwargs = inspect.getargspec(command.command)
+                command.config["command"] = coroutine(command.command) if inspect.isgeneratorfunction(command.command) else command.command
+                args, varg, vkwarg, kwargs = inspect.getargspec(command.command)
 
                 if args[:5] != ["guid", "manager", "irc", "channel", "user"]:
                     continue
@@ -71,6 +63,8 @@ class Module(object):
                 else:
                     command.config["args"] = args[5:]
                     command.config["kwargs"] = []
+                command.config["varg"] = varg
+                command.config["vkwarg"] = vkwarg
 
                 if "disabled" in command.config and command.config["disabled"]:
                     continue
@@ -113,7 +107,7 @@ class Module(object):
             arg = parts.pop(0)
             if arg.startswith("--"):
                 name, _, value = arg[2:].partition("=")
-                name = name.replace("-","_")
+                name = name.replace("-","_").lower()
                 if value:
                     if value.startswith('"'):
                         if value.endswith('"'):
@@ -153,7 +147,7 @@ class Module(object):
             return
 
         # Extract command name, checking if it is a reversed command
-        command = args.pop(0)
+        command = args.pop(0).lower()
         if command.startswith("un"):
             command = command[2:]
             kwargs["reverse"] = True
@@ -166,7 +160,7 @@ class Module(object):
         command = self.commands[command]
 
         # Check access before we print help text. It avoids confusion
-        if command["access"] not in perms:
+        if command["access"] not in perms or (kwargs["admin_mode"] and "superadmin" not in perms):
             return
 
         # Ensure that if they tried a reverse command, that it is actually reversible
@@ -174,11 +168,12 @@ class Module(object):
             return
 
         # Filter kwargs
-        filtered = {}
-        for arg in command["kwargs"]:
-            if arg in kwargs:
-                filtered[arg] = kwargs[arg]
-        kwargs = filtered
+        if not command["vkwarg"]:
+            filtered = {}
+            for arg in command["kwargs"]:
+                if arg in kwargs:
+                    filtered[arg] = kwargs[arg]
+            kwargs = filtered
 
         # Fix up args
         arglen = len(command["args"])
@@ -186,25 +181,30 @@ class Module(object):
             irc.msg(channel, command["reverse_help"] if "reverse" in kwargs and kwargs["reverse"] else command["help"])
             return
 
-        if arglen:
-            args = args[:arglen-1] + [" ".join(args[arglen-1:])]
-        else:
-            # As a special case, if there are no args, map args to kwargs
-            args = dict(zip(command["kwargs"], args))
-            args.update(kwargs)
-            kwargs = args
-            args = []
+        if not command["varg"]:
+            if arglen:
+                args = args[:arglen-1] + [" ".join(args[arglen-1:])]
+            else:
+                # As a special case, if there are no args, map args to kwargs
+                args = dict(zip(command["kwargs"], args))
+                args.update(kwargs)
+                kwargs = args
+                args = []
 
         # Get a working directory & identifier
         guid = self.getGUID()
 
         # Run the command
         self.log("Running command: {} {} {} {} {!r} {!r}", command["name"], guid, channel, user, args, kwargs)
-        self.dispatch("start", command["name"], guid, channel, user, args, kwargs)
+        process = maybeDeferred(command["command"], guid, self, irc, channel, user, *args, **kwargs)
+        self.dispatch("start", process, command["name"], guid, channel, user, args, kwargs)
         try:
-            result = yield maybeDeferred(command["command"], guid, self, irc, channel, user, *args, **kwargs)
+            result = yield process
         except CommandException as e:
             irc.msg(channel, unicode(e))
+            result = e
+        except CancelledError as e:
+            irc.msg(channel, u"{} on behalf of {} was cancelled.".format(command["name"], user))
             result = e
         except Exception as e:
             self.err("{} on behalf of {} failed unexpectedly.", command["name"], user)

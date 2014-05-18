@@ -6,6 +6,9 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user, contents, quality, episode, show):
+    irc.msg(channel, u"This command is currently disabled due to the upgrade to v5. It'll return shortly. Thank you for your patience.")
+    return
+    
     if contents not in ("subs","video","both"):
         raise manager.exception("Invalid content, must be subs, video or both")
 
@@ -13,13 +16,13 @@ def command(guid, manager, irc, channel, user, contents, quality, episode, show)
         raise manager.exception("Invalid quality, must be 360, 480, 720, or 1080")
 
     try:
-        episode = int(episode)
+        e = int(episode)
+        key = "{:02d}".format(e)
     except:
-        raise manager.exception("Invalid episode number, must be an integer")
+        key = episode
 
     show = manager.master.modules["crunchy"].resolve(show)
 
-    key = "{:02d}".format(episode)
     if key not in show.episodes:
         raise manager.exception("No data for that episode, try again when CR has added it")
 
@@ -28,6 +31,7 @@ def command(guid, manager, irc, channel, user, contents, quality, episode, show)
     video = contents in ("video", "both")
 
     irc.msg(channel, u"AIGHT M8, WE'LL GIT ZAT RIGHT UP READY FOR YA!")
+    manager.dispatch("update", guid, u"Downloading {} {} [{}p]".format(show.name, key, quality))
     yield manager.master.modules["crunchy"].rip(guid, data, quality, video, subs)
     irc.msg(channel, u"Ripping of {} {} [{}p] was successful".format(show.name, key, quality))
 

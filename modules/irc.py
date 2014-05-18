@@ -8,7 +8,7 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import LoopingCall
 from twisted.words.protocols.irc import IRCClient
 
-dependencies = ["config"]
+dependencies = ["config", "db"]
 
 def normalize(s):
     if isinstance(s, unicode):
@@ -80,7 +80,7 @@ class Module(IRCClient):
     sourceURL = "https://github.com/Fugiman/Servrhe"
     versionEnv = "Twisted-Python"
     versionName = "Servrhe (Custom Bot)"
-    versionNum = "4.0"
+    versionNum = "5.0"
 
     def __init__(self, master):
         self.master = master
@@ -100,7 +100,7 @@ class Module(IRCClient):
     def connectionMade(self):
         self.connected = True
         IRCClient.connectionMade(self)
-        nick = yield self.config.get("nick", "ServrheV4")
+        nick = yield self.config.get("nick", "ServrheV5")
         self.register(nick.encode("utf8"))
         self.dispatch("connected")
 
@@ -113,10 +113,10 @@ class Module(IRCClient):
         self.factory.connection = self
         self.nick_check = LoopingCall(self.nickCheck)
         self.nick_check.start(60)
-        channels = yield self.config.get("channels", [u"#commie-subs"])
         self.channels = {}
-        for c in channels:
-            self.join(c)
+        channels = yield self.master.modules["db"].channelList()
+        for c, p in channels.items():
+            self.join(u"{} {}".format(c, p) if p else c, True)
     
     def connectionLost(self, reason=None):
         self.connected = False
@@ -204,31 +204,39 @@ class Module(IRCClient):
         self.kick(channel.encode("utf8"), user.encode("utf8"), reason.encode("utf8"))
 
     @inlineCallbacks
-    def join(self, channel):
-        passwords = yield self.config.get("passwords")
+    def join(self, channel, no_database=False):
         actual, _, password = channel.partition(" ")
 
+        if not no_database:
+            c, p, ac = yield self.master.modules["db"].channelGet(actual)
+
+            if c:
+                actual = c
+
+            if not password and p:
+                password = p
+
+            yield self.master.modules["db"].channelSet(actual, password, True)
+
         if password:
-            passwords[channel] = password
-        elif actual in passwords:
-            channel = "{} {}".format(actual, passwords[actual])
+            channel = u"{} {}".format(actual, password)
 
         self.channels[actual] = {}
-        self.config.set("channels", self.channels.keys())
-        self.config.set("passwords", passwords)
 
         IRCClient.join(self, channel.encode("utf8"))
         nick = normalize(self.nickname)
         self.dispatch("joined", actual, nick)
 
+    @inlineCallbacks
     def leave(self, channel):
         if channel not in self.channels:
             return
         del self.channels[channel]
-        self.config.set("channels", self.channels.keys())
         IRCClient.leave(self, channel.encode("utf8"))
         nick = normalize(self.nickname)
         self.dispatch("left", channel, nick)
+        c, p, ac = yield self.master.modules["db"].channelGet(channel)
+        yield self.master.modules["db"].channelSet(c, p, False)
 
     # Channel tracking
     def userJoined(self, user, channel):

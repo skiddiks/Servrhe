@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from twisted.application import service, strports
+from twisted.enterprise import adbapi
 from twisted.internet import defer, reactor
 from twisted.plugin import IPlugin
 from twisted.python import log, usage
@@ -10,9 +11,6 @@ import copy, functools, inspect, pkgutil, sys, txmongo
 
 class Options(usage.Options):
     optParameters = [
-        ["dbhost", "dbh", "127.0.0.1", "The MongoDB hostname"],
-        ["dbport", "dbp", 27017, "The MongoDB port", int],
-        ["dbname", "dbn", "ircbot", "The MongoDB database name"],
         ["irchost", "ih", "irc.rizon.net", "The IRC server hostname"],
         ["ircport", "ip", 6667, "The IRC server port", int],
         ["web", "w", "tcp:8091", "The webserver endpoint"],
@@ -24,11 +22,7 @@ class Master(service.MultiService):
     def __init__(self, options):
         service.MultiService.__init__(self)
         self.moddir = options["moddir"]
-        self.dbhost = options["dbhost"]
-        self.dbport = options["dbport"]
-        self.dbname = options["dbname"]
         self.options = options
-        self._db = None
         self.db = None
         self.modules = {}
 
@@ -39,8 +33,7 @@ class Master(service.MultiService):
     def startService(self):
         self.agent = client.Agent(reactor, connectTimeout=5)
         self.agent._pool._factory.noisy = False
-        self._db = yield txmongo.MongoConnectionPool(self.dbhost, self.dbport)
-        self.db = getattr(self._db, self.dbname)
+        self.db = adbapi.ConnectionPool("MySQLdb", db="servrhe", cp_reconnect=True)
         yield self.loadModules()
         service.MultiService.startService(self)
 
@@ -126,10 +119,9 @@ class Master(service.MultiService):
         for module in self.modules.values():
             deferreds.append(defer.maybeDeferred(module.stop))
         yield defer.DeferredList(deferreds)
-        yield self._db.disconnect()
+        self.db.close()
         self.modules = {}
         self.db = None
-        self._db = None
 
 class Web(server.Site):
     def __init__(self, master):

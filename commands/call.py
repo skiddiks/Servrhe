@@ -4,7 +4,9 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user, name, message):
+    manager.dispatch("update", guid, u"Waiting on alias.resolve")
     alias = yield manager.master.modules["alias"].resolve(name)
-    number = manager.master.modules["twilio"].resolve(alias)
+    number = yield manager.master.modules["twilio"].resolve(alias)
+    manager.dispatch("update", guid, u"Waiting on twilio.call")
     id = yield manager.master.modules["twilio"].call(number, user, message)
     irc.msg(channel, u"Calling {}... (ID #{})".format(alias, id))

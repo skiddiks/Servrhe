@@ -9,8 +9,17 @@ config = {
 cooldowns = {}
 
 def command(guid, manager, irc, channel, user, name = None, seed = None, duwang = False):
+    irc.msg(channel, u"This command is currently disabled due to the upgrade to v5. It'll return shortly. Thank you for your patience.")
+    return
+    
+    manager.dispatch("update", guid, u"Waiting on manager.getPermissions")
     permissions = yield manager.getPermissions(user)
     now = datetime.datetime.utcnow()
+
+    if name is True:
+        name = None
+    if seed is True:
+        seed = None
 
     if name is not None and " " in name:
         name = name.split(" ")[0]
@@ -45,20 +54,24 @@ def command(guid, manager, irc, channel, user, name = None, seed = None, duwang 
     if not name:
         cooldowns[user]["time"] = now + cooldown
         cooldowns[user]["warnings"] = 0
+        manager.dispatch("update", guid, u"Generating sentence")
         message = yield manager.master.modules["markov"].ramble(seed=seed, entropy=duwang)
         irc.msg(channel, message)
         return
 
+    manager.dispatch("update", guid, u"Waiting on manager.getPermissions")
     otherperms = yield manager.getPermissions(name)
     if "staff" in otherperms and "staff" not in permissions:
         cooldown *= 5
 
+    manager.dispatch("update", guid, u"Waiting on alias.resolve")
     name = yield manager.master.modules["alias"].resolve(name)
     if name not in manager.master.modules["markov"].ranking:
         raise manager.exception(u"No data on {}".format(name))
 
     cooldowns[user]["time"] = now + cooldown
     cooldowns[user]["warnings"] = 0
+    manager.dispatch("update", guid, u"Generating sentence")
     message = yield manager.master.modules["markov"].ramble(name, seed, duwang)
     irc.msg(channel, message)
     returnValue(message)

@@ -9,6 +9,7 @@ config = {
 cooldowns = {}
 
 def command(guid, manager, irc, channel, user, seed = None):
+    manager.dispatch("update", guid, u"Waiting on manager.getPermissions")
     permissions = yield manager.getPermissions(user)
     now = datetime.datetime.utcnow()
 

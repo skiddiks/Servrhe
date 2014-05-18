@@ -4,8 +4,9 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user, position, victim, show):
+    manager.dispatch("update", guid, u"Waiting on showtimes.getPosition")
     position = yield manager.master.modules["showtimes"].getPosition(position)
     show = manager.master.modules["showtimes"].resolve(show)
-    manager.dispatch("update", guid, "Waiting on showtimes.assign")
+    manager.dispatch("update", guid, u"Waiting on showtimes.assign")
     yield manager.master.modules["showtimes"].assign(show, position, victim)
     irc.msg(channel, u"{} for {} is assigned to {}".format(position, show.name.english, victim))

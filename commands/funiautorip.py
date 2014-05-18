@@ -6,6 +6,9 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user, quality, show):
+    irc.msg(channel, u"This command is currently disabled due to the upgrade to v5. It'll return shortly. Thank you for your patience.")
+    return
+    
     if quality not in ("360", "480", "720"):
         raise manager.exception("Invalid quality, must be 360, 480, or 720")
 

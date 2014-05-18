@@ -6,6 +6,9 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user, contents, quality, show):
+    irc.msg(channel, u"This command is currently disabled due to the upgrade to v5. It'll return shortly. Thank you for your patience.")
+    return
+    
     if contents not in ("subs","video","both"):
         raise manager.exception("Invalid content, must be subs, video or both")
 
@@ -17,6 +20,6 @@ def command(guid, manager, irc, channel, user, contents, quality, show):
     subs = contents in ("subs", "both")
     video = contents in ("video", "both")
     yield manager.master.modules["crunchy"].autodownload(show, quality, video, subs)
-    irc.msg(channel, u"Set {} to autorip {} at {}p".format(series, contents, quality))
+    irc.msg(channel, u"Set {} to autorip {} at {}p".format(show.name, contents, quality))
 
     returnValue(show.name)

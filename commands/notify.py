@@ -20,4 +20,5 @@ def command(guid, manager, irc, channel, user, duration, name):
             duration = int(duration)
         except:
             raise manager.exception(u"Failed to convert duration to an integer")
+    manager.dispatch("update", guid, u"Waiting on showtimes.notify")
     yield manager.master.modules["showtimes"].notify(id, user, duration)

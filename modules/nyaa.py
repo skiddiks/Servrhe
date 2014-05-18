@@ -36,9 +36,9 @@ class Module(object):
         if user is None or passwd is None:
             raise exception(u"No TT username or password in config")
 
-        response = yield nyaagent.request("POST","http://www.nyaa.eu/?page=login",
+        response = yield nyaagent.request("POST","http://www.nyaa.se/?page=login",
             Headers({'Content-Type': ['application/x-www-form-urlencoded']}),
-            FileBodyProducer(StringIO(urllib.urlencode({"loginusername": user,"loginpassword": passwd}))))
+            FileBodyProducer(StringIO(urllib.urlencode({"method": "1", "login": user,"password": passwd}))))
 
         body = yield self.master.modules["utils"].returnBody(response)
         if "Login successful" not in body:
@@ -59,12 +59,12 @@ class Module(object):
             "submit": "Upload"
         })
 
-        response = yield nyaagent.request("POST","http://www.nyaa.eu/?page=upload", Headers({'Content-Type': ['multipart/form-data; boundary={}'.format(post_data.boundary)]}), post_data)
+        response = yield nyaagent.request("POST","http://www.nyaa.se/?page=upload", Headers({'Content-Type': ['multipart/form-data; boundary={}'.format(post_data.boundary)]}), post_data)
         if response.code != 200:
             raise exception(u"Couldn't upload torrent to Nyaa. Error #{:d}: {}".format(response.code, self.codes[response.code]))
 
         body = yield self.master.modules["utils"].returnBody(response)
-        match = re.search("http://www.nyaa.eu/\?page=view&#38;tid=[0-9]+", body)
+        match = re.search("http://www.nyaa.se/\?page=view&#38;tid=[0-9]+", body)
         if not match:
             raise exception(u"Couldn't find torrent link in Nyaa's response.")
 

@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+import json
 
-dependencies = []
+dependencies = ["db"]
 
 class Shard(object):
     def __init__(self, master, name):
@@ -10,30 +11,29 @@ class Shard(object):
         self.name = name
 
     def get(self, key, default=None):
-        return self.master.modules["config"].get("{}_{}".format(self.name, key), default)
+        return self.master.modules["config"].get(self.name, key, default)
 
     def set(self, key, value):
-        return self.master.modules["config"].set("{}_{}".format(self.name, key), value)
+        return self.master.modules["config"].set(self.name, key, value)
 
 class Module(object):
     def __init__(self, master):
         self.master = master
-        self.db = master.db.config
 
     def stop(self):
         pass
 
     @inlineCallbacks
-    def get(self, key, default=None):
-        result = yield self.db.find_one({"_id": key})
-        returnValue(result["value"] if result else default)
+    def get(self, namespace, key, default=None):
+        result = yield self.master.modules["db"].configGet(namespace, key)
+        returnValue(json.loads(result) or default)
 
     @inlineCallbacks
-    def set(self, key, value):
+    def set(self, namespace, key, value):
         try:
-            result = yield self.db.save({"_id": key, "value": value}, safe=True)
+            result = yield self.master.modules["db"].configSet(namespace, key, json.dumps(value, separators=(',', ':')))
         except:
-            self.err("Failed to save {} = {!r}", key, value)
+            self.err("Failed to save {}:{} = {!r}", namespace, key, value)
             returnValue(False)
         else:
             returnValue(True)

@@ -1,5 +1,5 @@
 config = {
-    "access": "owner",
+    "access": "superadmin",
     "help": ".reload [modules] (--blacklist) || .reload commands || Reloads specified modules",
     "reversible": False
 }

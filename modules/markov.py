@@ -1,9 +1,16 @@
 # -*- coding: utf-8 -*-
+dependencies = []
+class Module(object):
+    def __init__(self, master):
+        pass
+    def stop(self):
+        pass
 
+"""
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, maybeDeferred, returnValue
 from twisted.internet.task import LoopingCall
-from collections import deque
+from collections import deque, Counter
 from txmongo._pymongo.son import SON
 import datetime, json, inspect, random, re, txmongo
 
@@ -138,6 +145,11 @@ class Module(object):
         returnValue((result[0]["word1"], result[0]["word2"], result[0]["word3"]))
 
     @inlineCallbacks
+    def count(self, word):
+        result = yield self.db.find({"word2": word}, fields=["name"])
+        returnValue(Counter([row["name"] for row in result]))
+
+    @inlineCallbacks
     def irc_message(self, channel, user, message):
         for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
             if name.startswith("filter_"):
@@ -169,3 +181,4 @@ class Module(object):
         match1 = re.match("\[Quote\] #\d+ added by .* ago.", message)
         match2 = re.match("\[Quote\] \d+ matches found: #[\d,]+", message)
         return not (user == "Quotes" and (match1 or match2))
+"""

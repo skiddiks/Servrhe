@@ -9,4 +9,4 @@ def command(guid, manager, irc, channel, user, show):
         irc.msg(channel, u"{} -> {}".format(show.name.english, show.name.japanese))
         return show.name.japanese
     else:
-        irc.msg(channel, u"{} does not have a Japanese title stored in showtimes.".format(show.name.english))
+        irc.msg(channel, u"There is no Japanese title for {} stored in showtimes.".format(show.name.english))

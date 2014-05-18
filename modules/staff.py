@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
+dependencies = []
+class Module(object):
+    def __init__(self, master):
+        pass
+    def stop(self):
+        pass
 
+"""
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from collections import namedtuple
@@ -97,3 +104,4 @@ class Module(object):
             }
         }
         yield self.load("new", data=data)
+"""

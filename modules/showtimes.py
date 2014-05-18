@@ -18,6 +18,13 @@ ShowObject = namedtuple("ShowObject", ["id", "name", "episode", "folder", "trans
 SubstatusObject = namedtuple("SubstatusObject", ["position", "name", "episode", "updated"])
 NextObject = namedtuple("NextObject", ["name", "episode", "when"])
 
+SHOW_ALIASES = {
+    "pleins": "Toaru Hikuushi e no Koiuta",
+    "cadence": "Yowamushi Pedal",
+    "bikes": "Yowamushi Pedal",
+    "yowapeda": "Yowamushi Pedal"
+}
+
 class Module(object):
     def __init__(self, master):
         self.master = master
@@ -61,6 +68,7 @@ class Module(object):
     @inlineCallbacks
     def refreshShows(self):
         data = yield self.load("shows")
+        self.shows = {}
         for show in data:
             name = NameObject(show["series"], show["series_jp"], show["abbr"])
             episode = EpisodeObject(show["current_ep"], show["total_eps"])
@@ -78,6 +86,8 @@ class Module(object):
         if not name:
             raise exception(u"Show name not specified.")
         name = name.lower()
+        if name in SHOW_ALIASES:
+            name = SHOW_ALIASES[name].lower()
         for s in self.shows.values():
             if s.name.english.lower() == name or s.name.abbreviation.lower() == name:
                 return s
@@ -97,7 +107,11 @@ class Module(object):
     def getPosition(self, given):
         exception = self.master.modules["commands"].exception
         positions = yield self.config.get("positions")
+        shortcuts = yield self.config.get("shortcuts")
         base = given.replace("ing","").replace("or","").replace("er","")
+
+        if base in shortcuts:
+            returnValue(shortcuts[base])
 
         for perm in ("","or","er"):
             if base+perm in positions:

@@ -6,6 +6,9 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user, quality, episode, show):
+    irc.msg(channel, u"This command is currently disabled due to the upgrade to v5. It'll return shortly. Thank you for your patience.")
+    return
+    
     if quality not in ("360", "480", "720"):
         raise manager.exception("Invalid quality, must be 360, 480, or 720")
 
@@ -23,7 +26,8 @@ def command(guid, manager, irc, channel, user, quality, episode, show):
     data = show.episodes[key]
 
     irc.msg(channel, u"AIGHT M8, WE'LL GIT ZAT RIGHT UP READY FOR YA!")
+    manager.dispatch("update", guid, u"Downloading {} {} [{}p]".format(show.name, key, quality))
     yield manager.master.modules["funi"].rip(guid, data, quality)
-    irc.msg(channel, u"Ripping of {} {} [{}p] was successful".format(series, key, quality))
+    irc.msg(channel, u"Ripping of {} {} [{}p] was successful".format(show.name, key, quality))
     
     returnValue(show.name)

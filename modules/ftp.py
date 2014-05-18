@@ -1,424 +1,184 @@
 # -*- coding: utf-8 -*-
 from twisted.internet import reactor, protocol
-from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
+from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue, succeed, fail
 from twisted.internet.error import TimeoutError
 from twisted.internet.protocol import ClientCreator
+from twisted.internet.utils import getProcessOutputAndValue
 from twisted.protocols.ftp import CommandFailed, FTPClient, FTPFileListProtocol
 from datetime import datetime as dt
 import fnmatch, os, shutil
 
 dependencies = ["config", "commands"]
 
-def parseDate(date):
-    if "  " in date:
-        d = dt.strptime(date, "%b %d  %Y")
-    else:
-        d = dt.strptime(date, "%b %d %H:%M")
-    return d
-
-class Downloader(protocol.Protocol):
-    def __init__(self, name, deferred = None, limit = None):
-        self.file = open(name, "wb")
-        self.len = 0
-        self.deferred = deferred
-        self.limit = limit
-        self.connected = True
-
-    def dataReceived(self, data):
-        if not self.connected:
-            return
-
-        added = len(data)
-        if self.limit is not None and self.len + added > self.limit:
-            added = self.limit - self.len
-            data = data[:added]
-
-        self.len += added
-        self.file.write(data)
-
-        if self.limit is not None and self.len >= self.limit:
-            self.connected = False
-            self.transport.loseConnection()
-
-    def connectionLost(self, reason):
-        self.file.close()
-        if self.deferred is not None:
-            self.deferred.callback(self.len)
-
 class Module(object):
-    split = 8
-    max = 8
-
     def __init__(self, master):
         self.master = master
         self.config = master.modules["config"].interface("ftp")
-        self.connections = 0
-        self.caching = []
-        self.downloader = Downloader
+        self.downloading = {}
+        self.uploading = {}
 
     def stop(self):
         pass
 
-    @inlineCallbacks
-    def acquireConnection(self):
-        exception = self.master.modules["commands"].exception
+    def download(self, folder):
+        if folder not in self.downloading:
+            self.downloading[folder] = self._download(folder)
+        return self.downloading[folder]
 
-        if self.connections >= self.max:
-            raise exception(u"No FTP connections available. Please wait and try again.")
+    def upload(self, folder = "_New Encodes"):
+        if folder not in self.uploading:
+            self.uploading[folder] = self._upload(folder)
+        return self.uploading[folder]
 
-        self.connections += 1
-
-        user = yield self.config.get("ftpuser")
-        passwd = yield self.config.get("ftppass")
-        host = yield self.config.get("ftphost")
-        port = yield self.config.get("ftpport")
-
-        if user is None or passwd is None or host is None or port is None:
-            self.connections -= 1
-            raise exception(u"No FTP user, pass, host or port in config")
-
-        try:
-            ftp = yield ClientCreator(reactor, FTPClient, user.encode("utf8"), passwd.encode("utf8")).connectTCP(host, int(port))
-
-        except TimeoutError:
-            self.connections -= 1
-            raise exception(u"Connection to FTP server timed out. Try again.")
-
-        returnValue(ftp)
-
-    @inlineCallbacks
-    def releaseConnection(self, ftp):
-        yield ftp.quit()
-        ftp.fail(None)
-        self.connections -= 1
-
-    @inlineCallbacks
-    def isCached(self, filename):
-        premux_dir = yield self.config.get("premuxdir", "premuxes")
-        returnValue(os.path.isfile(os.path.join(premux_dir, filename)))
-
-    @inlineCallbacks
     def get(self, folder, filename, destination):
-        exception = self.master.modules["commands"].exception
+        source = os.path.join("mirror", folder, filename)
+        destination = os.path.join(destination, filename)
 
-        ftp = yield self.acquireConnection()
+        if not os.path.exists(source):
+            return fail(self.master.modules["commands"].exception(u"Could not download {}".format(source)))
 
-        try:
-            yield ftp.changeDirectory(folder.encode("utf8"))
+        shutil.copy(source, destination)
+        return succeed(None)
 
-            filelist = FTPFileListProtocol()
-            yield ftp.list(".", filelist)
-            sizes = [x["size"] for x in filelist.files if x["filename"] == filename]
-            if not sizes or len(sizes) > 1:
-                raise exception(u"Couldn't find file in FTP")
+    def put(self, folder, filename, destination = "_New Encodes"):
+        source = os.path.join(folder, filename)
+        destination = os.path.join("mirror", destination)
 
-            length = sizes[0]
+        if not os.path.exists(source):
+            return fail(self.master.modules["commands"].exception(u"Could not upload {}".format(source)))
 
-            downloader = Downloader(os.path.join(destination, filename))
-            yield ftp.retrieveFile(filename.encode("utf8"), downloader)
+        if not os.path.exists(destination):
+            os.makedirs(destination)
 
-        except TimeoutError:
-            raise exception(u"Connection to FTP server timed out. Try again.")
+        shutil.copy(source, os.path.join(destination, filename))
+        return succeed(None)
 
-        except CommandFailed:
-            raise exception(u"FTP a shit. Try again.")
+    def getLatest(self, folder, pattern):
+        source = os.path.join("mirror", folder)
 
-        finally:
-            yield self.releaseConnection(ftp)
+        if not os.path.exists(source):
+            return fail(self.master.modules["commands"].exception(u"Could not download latest with pattern {}".format(pattern)))
 
-        if length != downloader.len:
-            os.remove(os.path.join(destination, filename))
-            raise exception(u"Downloaded file was not the proper size. Got {:,d} instead of {:,d}".format(downloader.len, length))
+        files = []
+        for filename in fnmatch.filter(os.listdir(source), pattern):
+            if os.path.isfile(os.path.join(source, filename)):
+                files.append((os.stat(os.path.join(source, filename)).st_mtime, filename))
 
-    @inlineCallbacks
-    def getFromCache(self, folder, filename, destination):
-        cached = yield self.isCached(filename)
-        if not cached:
-            yield self.cache(folder, filename)
-
-        premux_dir = yield self.config.get("premuxdir", "premuxes")
-        shutil.copyfile(os.path.join(premux_dir, filename), os.path.join(destination, filename))
-
-    @inlineCallbacks
-    def getLatest(self, folder, filter):
-        exception = self.master.modules["commands"].exception
-
-        ftp = yield self.acquireConnection()
-
-        try:
-            yield ftp.changeDirectory(folder.encode("utf8"))
-
-            filelist = FTPFileListProtocol()
-            yield ftp.list(".", filelist)
-
-        except TimeoutError:
-            raise exception(u"Connection to FTP server timed out. Try again.")
-
-        except CommandFailed:
-            raise exception(u"FTP a shit. Try again.")
-
-        finally:
-            yield self.releaseConnection(ftp)
-
-        files =  fnmatch.filter([x["filename"] for x in filelist.files if x["filetype"] != "d"], filter)
         if not files:
-            raise exception(u"No files in FTP match given {}".format(filter))
+            return fail(self.master.modules["commands"].exception(u"No files matched pattern {}".format(pattern)))
 
-        files = [(x["filename"], parseDate(x["date"])) for x in filelist.files if x["filename"] in files]
-        files.sort(key=lambda x: x[1], reverse=True)
-        returnValue(files[0][0])
+        filename = sorted(files, reverse=True)[0][1]
+        return succeed(filename)
 
-    @inlineCallbacks
-    def put(self, folder, filename, destination = None):
-        exception = self.master.modules["commands"].exception
-        if destination is None:
-            destination = yield self.config.get("ftpdefaultdir")
-        if destination is None:
-            raise exception(u"No FTP default directory in config")
+    def getFonts(self, folder, destination):
+        source = os.path.join("mirror", folder, "fonts")
 
-        ftp = yield self.acquireConnection()
+        if not os.path.exists(source):
+            return fail(self.master.modules["commands"].exception(u"Could not download fonts"))
 
-        try:
-            yield ftp.changeDirectory(destination.encode("utf8"))
+        fonts = []
+        for filename in os.listdir(source):
+            if os.path.isfile(os.path.join(source, filename)):
+                fonts.append(filename)
+                shutil.copy(os.path.join(source, filename), os.path.join(destination, filename))
 
-            store, finish = ftp.storeFile(filename.encode("utf8"))
-            sender = yield store
-            with open(os.path.join(folder, filename), "rb") as f:
-                sender.transport.write(f.read())
-            sender.finish()
-            yield finish
-
-        except TimeoutError:
-            raise exception(u"Connection to FTP server timed out. Try again.")
-
-        except CommandFailed:
-            raise exception(u"FTP a shit. Try again.")
-
-        finally:
-            yield self.releaseConnection(ftp)
+        return succeed(fonts)
 
     @inlineCallbacks
     def putXDCC(self, folder, filename, destination):
-        exception = self.master.modules["commands"].exception
-
-        user = yield self.config.get("xdccuser")
-        passwd = yield self.config.get("xdccpass")
-        host = yield self.config.get("xdcchost")
-        port = yield self.config.get("xdccport")
+        user, passwd, host, port = yield self._creds("xdcc")
         root = yield self.config.get("xdccfolder")
+        if root is None:
+            raise self.master.modules["commands"].exception(u"No XDCC folder in config")
 
-        if user is None or passwd is None or host is None or port is None or root is None:
-            raise exception(u"No XDCC FTP user, pass, host, port or folder in config")
+        url = "ftp://{}:{}@{}:{:d}/{}/{}/{}".format(user, passwd, host, port, root.encode("utf8"), destination.encode("utf8"), filename.encode("utf8"))
+        filename = os.path.join(folder, filename).encode("utf8")
 
-        ftp = yield ClientCreator(reactor, FTPClient, user.encode("utf8"), passwd.encode("utf8")).connectTCP(host, int(port))
-        yield ftp.changeDirectory(root.encode("utf8"))
-        yield ftp.changeDirectory(destination.encode("utf8"))
+        yield self._put(filename, url)
 
-        store, finish = ftp.storeFile(filename.encode("utf8"))
-        sender = yield store
-        with open(os.path.join(folder, filename), "rb") as f:
-            sender.transport.write(f.read())
-        sender.finish()
-        yield finish
+    @inlineCallbacks
+    def putXDCC2(self, folder, filename):
+        exception = self.master.modules["commands"].exception
+        user, passwd, host, port = yield self._creds("xdcc2")
 
-        yield ftp.quit()
-        ftp.fail(None)
+        url = "ftp://{}:{}@{}:{:d}/{}".format(user, passwd, host, port, filename.encode("utf8"))
+        filename = os.path.join(folder, filename).encode("utf8")
+
+        yield self._put(filename, url)
 
     @inlineCallbacks
     def putSeedbox(self, folder, filename):
         exception = self.master.modules["commands"].exception
+        user, passwd, host, port = yield self._creds("seed")
         destination = yield self.config.get("seedmkvfolder")
         if destination is None:
             raise exception(u"No Seedbox MKV folder in config")
 
-        user = yield self.config.get("seeduser")
-        passwd = yield self.config.get("seedpass")
-        host = yield self.config.get("seedhost")
-        port = yield self.config.get("seedport")
+        url = "ftp://{}:{}@{}:{:d}/{}/{}".format(user, passwd, host, port, destination.encode("utf8"), filename.encode("utf8"))
+        filename = os.path.join(folder, filename).encode("utf8")
 
-        if user is None or passwd is None or host is None or port is None:
-            raise exception(u"No Seedbox FTP user, pass, host or port in config")
-
-        ftp = yield ClientCreator(reactor, FTPClient, user.encode("utf8"), passwd.encode("utf8")).connectTCP(host, int(port))
-        yield ftp.changeDirectory(destination.encode("utf8"))
-
-        store, finish = ftp.storeFile(filename.encode("utf8"))
-        sender = yield store
-        with open(os.path.join(folder, filename), "rb") as f:
-            sender.transport.write(f.read())
-        sender.finish()
-        yield finish
-
-        yield ftp.quit()
-        ftp.fail(None)
+        yield self._put(filename, url)
 
     @inlineCallbacks
     def putTorrent(self, folder, filename):
         exception = self.master.modules["commands"].exception
+        user, passwd, host, port = yield self._creds("seed")
         destination = yield self.config.get("seedtorrentfolder")
         if destination is None:
             raise exception(u"No Seedbox torrent folder in config")
 
-        user = yield self.config.get("seeduser")
-        passwd = yield self.config.get("seedpass")
-        host = yield self.config.get("seedhost")
-        port = yield self.config.get("seedport")
+        url = "ftp://{}:{}@{}:{:d}/{}/{}".format(user, passwd, host, port, destination.encode("utf8"), filename.encode("utf8"))
+        filename = os.path.join(folder, filename).encode("utf8")
+
+        yield self._put(filename, url)
+
+    @inlineCallbacks
+    def _creds(self, server):
+        user   = yield self.config.get(server + "user")
+        passwd = yield self.config.get(server + "pass")
+        host   = yield self.config.get(server + "host")
+        port   = yield self.config.get(server + "port")
 
         if user is None or passwd is None or host is None or port is None:
-            raise exception(u"No Seedbox FTP user, pass, host or port in config")
+            raise exception(u"No " + server + " user, pass, host or port in config")
 
-        ftp = yield ClientCreator(reactor, FTPClient, user.encode("utf8"), passwd.encode("utf8")).connectTCP(host, int(port))
-        yield ftp.changeDirectory(destination.encode("utf8"))
-
-        store, finish = ftp.storeFile(filename.encode("utf8"))
-        sender = yield store
-        with open(os.path.join(folder, filename), "rb") as f:
-            sender.transport.write(f.read())
-        sender.finish()
-        yield finish
-
-        yield ftp.quit()
-        ftp.fail(None)
+        returnValue((user.encode("utf8"), passwd.encode("utf8"), host.encode("utf8"), int(port)))
 
     @inlineCallbacks
-    def uploadFonts(self, destination):
-        exception = self.master.modules["commands"].exception
-        fontdir = yield self.config.get("fontdir", "fonts")
-
-        ftp = yield self.acquireConnection()
-
-        try:
-            yield ftp.changeDirectory(destination.encode("utf8"))
-
-            filelist = FTPFileListProtocol()
-            yield ftp.list(".", filelist)
-
-            if fontdir not in [x["filename"] for x in filelist.files if x["filetype"] == "d"]:
-                yield ftp.makeDirectory(fontdir.encode("utf8"))
-
-            for font in os.listdir(fontdir):
-                path = os.path.join(fontdir, font)
-                store, finish = ftp.storeFile(path.encode("utf8"))
-                sender = yield store
-                with open(path, "rb") as f:
-                    sender.transport.write(f.read())
-                sender.finish()
-                yield finish
-
-        except TimeoutError:
-            raise exception(u"Connection to FTP server timed out. Try again.")
-
-        except CommandFailed:
-            raise exception(u"FTP a shit. Try again.")
-
-        finally:
-            yield self.releaseConnection(ftp)
+    def _run(self, program, arguments, error_message):
+        out, err, code = yield getProcessOutputAndValue(program, args=arguments, env=os.environ)
+        if code != 0:
+            self.log(out)
+            self.log(err)
+            raise self.master.modules["commands"].exception("{} [OUT: {}] [ERR: {}]".format(error_message, out.replace("\n"," "), err.replace("\n"," ")))
 
     @inlineCallbacks
-    def downloadFonts(self, folder, destination):
-        exception = self.master.modules["commands"].exception
-        fontdir = yield self.config.get("fontdir", "fonts")
+    def _download(self, folder):
+        user, passwd, host, port = yield self._creds("ftp")
+        lftp = self.master.modules["utils"].getPath("lftp")
 
-        ftp = yield self.acquireConnection()
+        args = ["-c","open","-e","mirror --continue --delete --use-pget=8 --loop --include-glob=\"*.mkv\" \"{0}\" \"mirror/{0}\"".format(folder),"ftp://{}:{}@{}:{:d}/".format(user,passwd,host,port)]
+        yield self._run(lftp, args, u"LFTP fucked up :(")
 
-        try:
-            yield ftp.changeDirectory(folder.encode("utf8"))
+        args = ["-c","open","-e","mirror --continue --delete                     --exclude-glob=\"*.mkv\" \"{0}\" \"mirror/{0}\"".format(folder),"ftp://{}:{}@{}:{:d}/".format(user,passwd,host,port)]
+        yield self._run(lftp, args, u"LFTP fucked up :(")
 
-            filelist = FTPFileListProtocol()
-            yield ftp.list(fontdir.encode("utf8"), filelist)
-            fonts = [x["filename"] for x in filelist.files if x["filetype"] != "d"]
-
-            for font in fonts:
-                downloader = Downloader(os.path.join(destination, font))
-                yield ftp.retrieveFile(os.path.join(fontdir, font).encode("utf8"), downloader)
-
-        except TimeoutError:
-            raise exception(u"Connection to FTP server timed out. Try again.")
-
-        except CommandFailed:
-            raise exception(u"FTP a shit. Try again.")
-
-        finally:
-            yield self.releaseConnection(ftp)
-
-        returnValue(fonts)
+        del self.downloading[folder]
 
     @inlineCallbacks
-    def cache(self, folder, filename):
-        exception = self.master.modules["commands"].exception
-        premux_dir = yield self.config.get("premuxdir", "premuxes")
+    def _upload(self, folder):
+        user, passwd, host, port = yield self._creds("ftp")
+        lftp = self.master.modules["utils"].getPath("lftp")
 
-        if filename in self.caching:
-            raise exception(u"Already caching {}".format(filename))
+        args = ["-c","open","-e","mirror --reverse --continue \"mirror/{0}\" \"{0}\"".format(folder),"ftp://{}:{}@{}:{:d}/".format(user,passwd,host,port)]
+        yield self._run(lftp, args, u"LFTP fucked up :(")
 
-        self.caching.append(filename)
-
-        try:
-            connections = []
-            for _ in range(max(self.split, 1)):
-                try:
-                    c = yield self.acquireConnection()
-                except:
-                    break
-                else:
-                    yield c.changeDirectory(folder.encode("utf8"))
-                    connections.append(c)
-
-            if not connections:
-                raise exception(u"No FTP connections available. Please wait and try again.")
-
-            try:
-                filelist = FTPFileListProtocol()
-                yield connections[0].list(".", filelist)
-                filedata = [x for x in filelist.files if x["filename"] == filename][0]
-
-                chunk_len = 1024 * ((filedata["size"] / len(connections)) / 1024) # Round to nearest kilobyte
-                remainder = filedata["size"] - (chunk_len * (len(connections) - 1))
-
-                deferreds = []
-                for i in range(len(connections)):
-                    fname = "{}.{:d}".format(filename, i)
-                    size = remainder if i == len(connections) - 1 else chunk_len
-                    downloader = Downloader(os.path.join(premux_dir, fname), limit=size)
-                    d = connections[i].retrieveFile(os.path.join(folder, filename), downloader, offset=chunk_len*i)
-                    d.addErrback(lambda _: None) # Swallow FTP fail errors
-                    deferreds.append(d)
-                yield DeferredList(deferreds)
-
-            except TimeoutError:
-                raise exception(u"Connection to FTP server timed out. Try again.")
-
-            except CommandFailed:
-                raise exception(u"FTP a shit. Try again.")
-
-            finally:
-                for c in connections:
-                    yield self.releaseConnection(c)
-
-            # Merge files in a way that won't use too much memory
-            wrong_size = False
-            with open(os.path.join(premux_dir, filename), "wb") as fout:
-                for i in range(len(connections)):
-                    size = remainder if i == len(connections) - 1 else chunk_len
-                    fname = "{}.{:d}".format(filename, i)
-
-                    wrong_size = wrong_size or os.path.getsize(os.path.join(premux_dir, fname)) != size
-
-                    with open(os.path.join(premux_dir, fname), "rb") as fin:
-                        shutil.copyfileobj(fin, fout, 65536)
-                    os.remove(os.path.join(premux_dir, fname))
-
-            actual = os.path.getsize(os.path.join(premux_dir, filename))
-            if wrong_size or actual != filedata["size"]:
-                os.remove(os.path.join(premux_dir, filename))
-                raise exception(u"Downloaded file was not the proper size. Got {:,d} instead of {:,d}".format(actual, filedata["size"]))
-
-        finally:
-            self.caching.remove(filename)
+        del self.uploading[folder]
 
     @inlineCallbacks
-    def uncache(self, filename):
-        exception = self.master.modules["commands"].exception
-        premux_dir = yield self.config.get("premuxdir", "premuxes")
+    def _put(self, source, destination):
+        user, passwd, host, port = yield self._creds("ftp")
+        curl = self.master.modules["utils"].getPath("curl")
 
-        os.remove(os.path.join(premux_dir, filename))
+        args = ["--globoff", "--upload-file", source, destination]
+        yield self._run(curl, args, u"CURL fucked up :(")

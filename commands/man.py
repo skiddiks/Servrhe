@@ -11,6 +11,7 @@ def command(guid, manager, irc, channel, user, commands):
     else:
         commands = commands.split(" ")
 
+    manager.dispatch("update", guid, u"Waiting on manager.getPermissions")
     permissions = yield manager.getPermissions(user)
 
     available = []

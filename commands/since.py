@@ -14,6 +14,7 @@ def command(guid, manager, irc, channel, user, show):
     ep = "{:02d}".format(show.episode.current + 1)
     diff = now - dt.utcfromtimestamp(show.airtime)
     aired = manager.master.modules["utils"].dt2ts(diff)
+    manager.dispatch("update", guid, u"Waiting on alias.resolve")
     alias = yield manager.master.modules["alias"].resolve(user)
     if show.episode.current == show.episode.total:
         message = u"{} is complete. You're welcome.".format(series)

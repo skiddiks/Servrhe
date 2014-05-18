@@ -16,14 +16,19 @@ class Module(object):
     def stop(self):
         pass
 
-    #@inlineCallbacks
+    @inlineCallbacks
     def resolve(self, name):
         exception = self.master.modules["commands"].exception
-        numbers = {
-        }
-        if name in numbers:
-            return numbers[name]
-        raise exception(u"No known number for {}".format(name))
+        number = yield self.master.modules["db"].alias2number(name)
+        if not number:
+            raise exception(u"No known number for {}".format(name))
+        returnValue(number)
+
+    @inlineCallbacks
+    def lookup(self, number):
+        number = number.replace("+", "").replace("-", "")
+        name = yield self.master.modules["db"].number2userName(number)
+        returnValue(name or number)
 
     @inlineCallbacks
     def call(self, number, who, what):
@@ -54,6 +59,35 @@ class Module(object):
                 "Method": "GET",
                 "Record": "true",
                 "Timeout": "20",
+                "StatusCallback": "http://servrhe.fugiman.com/twilio/"
+            })
+
+        response = yield self.master.agent.request("POST", url, Headers({'Content-Type': ['application/x-www-form-urlencoded'], 'Authorization': [creds]}), FileBodyProducer(StringIO(data)))
+        body = yield self.master.modules["utils"].returnBody(response)
+        data = json.loads(body)
+
+        if response.code not in (200, 201):
+            self.log("{!r}", data)
+            raise exception(u"Error placing call")
+        
+        returnValue(data["sid"])
+
+    @inlineCallbacks
+    def text(self, number, who, what):
+        exception = self.master.modules["commands"].exception
+        user = yield self.config.get("user")
+        passwd = yield self.config.get("pass")
+        us = yield self.config.get("number")
+
+        if user is None or passwd is None or us is None:
+            raise exception(u"No Twilio username, password, or number in config")
+
+        url = "https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json".format(user)
+        creds = "Basic {}".format(base64.b64encode("{}:{}".format(user, passwd)))
+        data = urllib.urlencode({
+                "From": us,
+                "To": number,
+                "Body": u"{}: {}".format(who, what).encode("UTF-8"),
                 "StatusCallback": "http://servrhe.fugiman.com/twilio/"
             })
 

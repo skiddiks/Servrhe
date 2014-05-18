@@ -154,3 +154,8 @@ class Module(object):
             i -= integer * count
         return u''.join(result)
 
+    def antihighlight(self, name):
+        pad = u"\u200B"
+        #pad = u"\u000F"
+        #pad = u" "
+        return pad.join(name)

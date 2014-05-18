@@ -3,7 +3,7 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.xmlrpc import Proxy
 from bs4 import BeautifulSoup
-import xmlrpclib
+import xmlrpclib, re
 
 dependencies = ["config", "commands"]
 
@@ -19,7 +19,7 @@ class Module(object):
     def createPost(self, show, episode, version, info_link, img_link, comment = None, hovertext = None):
         end = " END" if episode == show.episode.total else ""
         exception = self.master.modules["commands"].exception
-        img = '<img src="{}" title="{}" style="width: 100%; border-radius: 5px;" />'.format(img_link, "" if hovertext is None else hovertext)
+        img = '<img src="{}" title="{}" style="width: 100%; border-radius: 5px;" />'.format(img_link, "" if hovertext is None else hovertext.replace('"', '&quot;'))
         comment = "<br><br>{}".format(comment.encode("utf8")) if comment is not None else ""
 
         user = yield self.config.get("user")
@@ -29,8 +29,8 @@ class Module(object):
 
         blog = Proxy("http://commiesubs.com/xmlrpc.php")
         blog.queryFactory.noisy = False
-        slug = show.blog.split("/")[-2]
-        categories = ["The Bread Lines"]
+        slug = re.search("([^/]+)/?$", show.blog).group(1)
+        categories = ["The Bread Lines"] #, "DxS a shit"]
         result = yield blog.callRemote("wp.getTerms", 0, user, passwd, "category")
         for term in result:
             if term["slug"] == slug:

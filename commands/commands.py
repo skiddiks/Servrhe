@@ -5,6 +5,7 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user):
+    manager.dispatch("update", guid, u"Waiting on manager.getPermissions")
     permissions = yield manager.getPermissions(user)
     r = []
     for command in manager.commands.values():

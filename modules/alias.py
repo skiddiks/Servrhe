@@ -3,59 +3,47 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 import re
 
-dependencies = []
+dependencies = ["db"]
 
 class Module(object):
     def __init__(self, master):
         self.master = master
-        self.db = master.db.alias
 
     def stop(self):
         pass
 
     @inlineCallbacks
     def resolve(self, name):
-        name = name.lower()
-        result = yield self.db.find({"slaves": name})
-        returnValue(result[0]["master"] if result else name)
+        result = yield self.master.modules["db"].alias2userName(name)
+
+        if not result:
+            yield self.master.modules["db"].createUser(name)
+            result = name
+
+        returnValue(result)
 
     @inlineCallbacks
     def learn(self, master, slave):
-        master, slave = master.lower(), slave.lower()
-
-        if re.match("guest\d+", master) or re.match("guest\d+", slave):
+        if re.match("guest\d+", master.lower()) or re.match("guest\d+", slave.lower()):
             return
 
-        mrecord = yield self.db.find({"slaves": master})
-        srecord = yield self.db.find({"slaves": slave})
-        mrecord = mrecord[0] if mrecord else None
-        srecord = srecord[0] if srecord else None
-        if mrecord and srecord:
-            # Don't merge nick groups any more, lae abused it too much
-            return
+        uid1 = yield self.master.modules["db"].alias2userId(master)
+        uid2 = yield self.master.modules["db"].alias2userId(slave)
 
-            slaves = mrecord["slaves"] + srecord["slaves"]
-            mrecord["slaves"] = self._unique(slaves)
-            mrecord["alts"].append(srecord["master"])
-            yield self.db.save(mrecord, safe=True)
-            yield self.db.remove(srecord, safe=True)
-        elif mrecord:
-            mrecord["slaves"].append(slave)
-            yield self.db.save(mrecord, safe=True)
-        elif srecord:
-            srecord["slaves"].append(master)
-            yield self.db.save(srecord, safe=True)
+        if uid1 and uid2:
+            # If both exist, either they are already linked, or two alias groups exist
+            # We don't merge alias groups since it is abusable
+            return
+        elif uid1:
+            # If only the "master" exists, add the "slave" as an alias
+            yield self.master.modules["db"].createAlias(uid1, slave)
+        elif uid2:
+            # If only the "slave" exists, add the "master" as an alias
+            yield self.master.modules["db"].createAlias(uid2, master)
         else:
-            record = {"master": master, "slaves": [master, slave]}
-            yield self.db.save(record, safe=True)
-
-    def _unique(self, l):
-        s, r = {}, []
-        for i in l:
-            if i in s: continue
-            s[i] = True
-            r.append(i)
-        return r
+            # If neither exist, create a new alias group with "master" as the name
+            user_id = yield self.master.modules["db"].createUser(master)
+            yield self.master.modules["db"].createAlias(user_id, slave)
 
     def irc_rename(self, old, new):
         self.learn(old, new)
