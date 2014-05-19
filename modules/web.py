@@ -144,12 +144,7 @@ class TwilioIncoming(Base):
 
             irc.msg("#commie-staff", u"Inbound call on the Commie Subs hotline from {} is {}. Recording lasts {} and is available at {} (#{}).".format(caller, status, duration, recording, id))
 
-            returnValue("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <Response>
-                    <Hangup/>
-                </Response>
-                """)
+            returnValue('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>')
 
         elif "MessageSid" in request.args:
             body = request.args["Body"][0]
@@ -161,11 +156,7 @@ class TwilioIncoming(Base):
         else:
             self.master.log("Twilio-Incoming API call: {!r}", request.args)
 
-        returnValue("""
-            <?xml version="1.0" encoding="UTF-8"?>
-            <Response>
-            </Response>
-            """)
+        returnValue('<?xml version="1.0" encoding="UTF-8"?><Response></Response>')
 
 class Mahoyo(Base):
     isLeaf = True
