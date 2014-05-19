@@ -4,7 +4,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.client import FileBodyProducer
 from twisted.web.http_headers import Headers
 from StringIO import StringIO
-import base64, json, urllib
+import base64, json, urllib, hmac, hashlib
 
 dependencies = ["config", "commands", "utils"]
 
@@ -100,3 +100,19 @@ class Module(object):
             raise exception(u"Error placing call")
         
         returnValue(data["sid"])
+
+    @inlineCallbacks
+    def validate(self, request):
+        url = request.uri
+        data = sorted(request.args.items())
+        signature = request.requestHeaders.getRawHeaders("X-Twilio-Signature")
+        signature = signature[0] if signature else None
+        auth_token = yield self.config.get("pass")
+
+        for key, values in data:
+            for value in sorted(values):
+                url += key + value
+
+        generated = base64.b64encode(hmac.new(auth_token.encode("UTF-8", url, hashlib.sha1).digest())
+
+        returnValue(signature == generated)

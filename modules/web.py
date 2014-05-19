@@ -53,7 +53,18 @@ class Twilio(Base):
     isLeaf = True
 
     def render_POST(self, request):
+        self.handle(request).addCallback(lambda r: request.write(r)).addBoth(lambda _: request.finish())
+        return NOT_DONE_YET
+
+    @inlineCallbacks
+    def handle(self, request):
         irc = self.master.modules["irc"]
+        twilio = self.master.modules["twilio"]
+        
+        valid = yield twilio.validate(request)
+        if not valid:
+            self.master.log("Invalid Twilio signature: {!s}", (request.requestHeaders.getRawHeaders("X-Twilio-Signature") + [None])[0], cls="Web.Twilio")
+            returnValue("Invalid Signature")
 
         if "CallSid" in request.args:
             id = request.args["CallSid"][0]
@@ -101,7 +112,7 @@ class Twilio(Base):
         else:
             self.master.log("Twilio API call: {!r}", request.args)
 
-        return ""
+        returnValue("")
 
 class TwilioIncoming(Base):
     isLeaf = True
@@ -114,6 +125,11 @@ class TwilioIncoming(Base):
     def handle(self, request):
         irc = self.master.modules["irc"]
         twilio = self.master.modules["twilio"]
+
+        valid = yield twilio.validate(request)
+        if not valid:
+            self.master.log("Invalid Twilio signature: {!s}", (request.requestHeaders.getRawHeaders("X-Twilio-Signature") + [None])[0], cls="Web.TwilioIncoming")
+            returnValue("Invalid Signature")
 
         caller = request.args["From"][0]
         caller = yield twilio.lookup(caller)
