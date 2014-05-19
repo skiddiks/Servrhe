@@ -15,6 +15,10 @@ def command(guid, manager, irc, channel, user):
         manager.log(err)
         raise manager.exception(u"Aborted updating: Couldn't pull from github")
 
+    # Delete compiled files so that we can delete commands
+    yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("rm"), args=["modules/*.pyc"], env=os.environ)
+    yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("rm"), args=["commands/*.pyc"], env=os.environ)
+
     # Reload everything but IRC so the bot doesn't flicker
     # Also don't reload crunchy because log spam
     manager.dispatch("update", guid, u"Reloading modules")
