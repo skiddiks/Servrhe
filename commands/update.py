@@ -16,5 +16,6 @@ def command(guid, manager, irc, channel, user):
         raise manager.exception(u"Aborted updating: Couldn't pull from github")
 
     # Reload everything but IRC so the bot doesn't flicker
+    # Also don't reload crunchy because log spam
     manager.dispatch("update", guid, u"Reloading modules")
-    yield manager.master.loadModules(["irc"], True)
+    yield manager.master.loadModules(["irc", "crunchy"], True)
