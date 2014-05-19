@@ -168,6 +168,7 @@ class Update(Base):
 
     @inlineCallbacks
     def handle(self, request):
+        # Validate the request
         event = request.requestHeaders.getRawHeaders("X-GitHub-Event")
         signature = request.requestHeaders.getRawHeaders("X-Hub-Signature")
         if not event or not signature:
@@ -187,26 +188,90 @@ class Update(Base):
             self.master.log("Invalid Github webook event/signature. Event = {}, Signature = {}, Generated = {}", event, signature, generated, cls="Web.Update")
             returnValue("Invalid event or signature")
 
+        # Update the repo
         irc = self.master.modules["irc"]
         self.master.dispatch("irc", "message", u"#commie-staff", irc.nickname.decode("utf8"), u".update")
         self.master.log("Pulling changes from Github due to webhook...", cls="Web.Update")
 
+        # Post to staff channel informing them of the changes
         FORMATS = {
             "repo": u"\00313{}\017",
             "branch": u"\00306{}\017",
-            "sha1": u"\00314{}\017",
-            "author": u"\00315{}\017",
-            "message": u"{}"
+            "hash": u"\00314{}\017",
+            "tag": u"\00306{}\017",
+            "name": u"\00315{}\017",
+            "message": u"{}",
+            "url": u"\00302\037{}\017",
+            "number": u"\002{:,d}\017",
         }
-        
-        args = json.loads(body)
-        branch_name = args["ref_name"] or args["ref"].sub("refs/heads/", "")
-        repo = FORMATS["repo"].format(args["repository"]["name"])
-        branch = FORMATS["branch"].format(branch_name)
 
-        for commit in args["commits"]:
-            sha1 = FORMATS["sha1"].format(commit["id"][:8])
-            author = FORMATS["author"].format(commit["author"]["name"])
+        args = json.loads(body)
+        repo = FORMATS["repo"].format(args["repository"]["name"])
+
+        if "ref_name" in args:
+            branch_name = args["ref_name"]
+        else:
+            branch_name = args["ref"].replace("refs/heads/", "").replace("refs/tags/", "")
+        branch = FORMATS["branch"].format(branch_name)
+        tag = FORMATS["tag"].format(branch_name)
+
+        if "base_ref" in args:
+            if "base_ref_name" in args:
+                base_ref_name = args["base_ref_name"]
+            else:
+                base_ref_name = args["base_ref"].replace("refs/heads/", "").replace("refs/tags/", "")
+            base_ref = FORMATS["branch"].format(base_ref_name)
+        else:
+            base_ref = None
+
+        before_sha = FORMATS["hash"].format(args["before"][:8])
+        after_sha = FORMATS["hash"].format(args["after"][:8])
+        pusher = FORMATS["name"].format(args["pusher"]["name"] if "pusher" in args else "somebody")
+        distinct_commits = args.get("distinct_commits", [])
+
+        if args["created"]:
+            if args["ref"].startswith("refs/tags/"):
+                message = u"tagged {} at {}".format(tag, base_ref if base_ref else after_sha)
+            else:
+                message = u"created {}".format(branch)
+                if base_ref:
+                    message += u" from {}".format(base_ref)
+                elif not distinct_commits:
+                    message += u" at {}".format(after_sha)
+                num = len(distinct_commits)
+                message += " (+{} new commit{})".format(FORMATS["number"].format(num), "s" if num != 1 else "")
+        elif args["deleted"]:
+            message = u"\00304deleted\017 {} at {}".format(branch, before_sha)
+        elif args["forced"]:
+            message = u"\00304force-pushed\017 {} from {} to {}".format(branch, before_sha, after_sha)
+        elif args["commits"] and not distinct_commits:
+            if base_ref:
+                message = "merged {} into {}".format(base_ref, branch)
+            else:
+                message = "fast-forwarded {} from {} to {}".format(branch, before_sha, after_sha)
+        else:
+            num = len(distinct_commits)
+            message = "pushed {} new commit{} to {}".format(FORMATS["number"].format(num), "s" if num != 1 else "", branch)
+
+        if args["created"] and not distinct_commits:
+            url = args["repository"]["url"] + "/commits/" + branch_name
+        elif args["created"] and distinct_commits:
+            url = args["compare"]
+        elif args["deleted"]:
+            url = args["repository"]["url"] + "/commit/" + args["before"]
+        elif args["forced"]:
+            url = args["repository"]["url"] + "/commits/" + branch_name
+        elif len(distinct_commits) == 1:
+            url = distinct_commits[0]["url"]
+        else:
+            url = args["compare"]
+        url = FORMATS["url"].format(url)
+
+        irc.msg(u"#commie-staff", u"[{}] {} {}: {}".format(repo, pusher, message, url))
+
+        for commit in distinct_commits:
+            sha1 = FORMATS["hash"].format(commit["id"][:8])
+            author = FORMATS["name"].format(commit["author"]["name"])
             message = FORMATS["message"].format(commit["message"].partition("\n")[0])
             irc.msg(u"#commie-staff", u"{}/{} {} {}: {}".format(repo, branch, sha1, author, message))
 
