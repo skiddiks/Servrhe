@@ -115,5 +115,5 @@ class Module(object):
 
         generated = base64.b64encode(hmac.new(auth_token.encode("UTF-8"), url, hashlib.sha1).digest())
 
-        self.log("Twilio Signature Verification: {} -> {} = {}", url, generated, signature)
+        self.log("Twilio Signature Verification: {} -> {} <--> {}", url, generated, signature)
         returnValue(signature == generated)

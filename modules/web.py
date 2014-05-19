@@ -28,20 +28,14 @@ class Base(Resource):
         Resource.__init__(self)
         self.master = master
 
-class NoDirListingFile(File):
-    def directoryListing(self, *args, **kwargs):
-        return ForbiddenResource("You'll have to use .lewd to peruse this directory.")
-
 class Module(Base):
     def __init__(self, master):
         Base.__init__(self, master)
         self.putChild("", self)
-        self.putChild("progress", self)
         self.putChild("twilio", Twilio(master))
         self.putChild("twilio-incoming", TwilioIncoming(master))
         #self.putChild("mahoyo", Mahoyo(master))
         self.putChild("update", Update(master))
-        self.putChild("lewd", NoDirListingFile("lewd"))
 
     def stop(self):
         pass
