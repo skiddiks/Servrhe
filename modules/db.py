@@ -15,6 +15,7 @@ QUERIES = {
     "alias_to_permissions": lambda f, name: f('SELECT `permissions`.`name` FROM `permissions` INNER JOIN `user_permissions` ON `permissions`.`id` = `user_permissions`.`permission_id` INNER JOIN `aliases` ON `user_permissions`.`user_id` = `aliases`.`user_id` WHERE `aliases`.`name` = %s', (name, )),
     "alias_to_number": lambda f, name: f('SELECT `numbers`.`number` FROM `numbers` INNER JOIN `aliases` ON `numbers`.`user_id` = `aliases`.`user_id` WHERE `aliases`.`name` = %s', (name, )),
     "number_to_user_name": lambda f, number: f('SELECT `users`.`name` FROM `users` INNER JOIN `numbers` ON `users`.`id` = `numbers`.`user_id` WHERE `numbers`.`number` = %s', (number, )),
+    "number_list": lambda f: f('SELECT `users`.`name`, `numbers`.`number` FROM `numbers` INNER JOIN `users` ON `numbers`.`user_id` = `users`.`id`'),
     "channel_list": lambda f: f('SELECT `name`, `password` FROM `channels` WHERE `autoconnect` = 1'),
     "channel_get": lambda f, channel: f('SELECT `name`, `password`, `autoconnect` FROM `channels` WHERE `name` = %s', (channel, )),
     "channel_get": lambda f, c, p, ac: f('INSERT INTO `channels` (`name`, `password`, `autoconnect`) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE `password` = %s, `autoconnect` = %s', (c, p, ac, p, ac)),
@@ -89,6 +90,11 @@ class Module(object):
     def number2userName(self, number):
         result = yield QUERIES["number_to_user_name"](self.master.db.runQuery, number)
         returnValue(result[0][0] if result else None)
+
+    @inlineCallbacks
+    def numberList(self):
+        results = yield QUERIES["number_list"](self.master.db.runQuery)
+        returnValue({r[0]: r[1] for r in results})
 
     @inlineCallbacks
     def channelList(self):
