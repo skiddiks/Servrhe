@@ -182,7 +182,7 @@ class Update(Base):
         request.content.seek(0, 0)
         body = request.content.read()
         secret = yield self.master.modules["config"].get("github", "secret")
-        generated = hmac.new(secret, body, getattr(hashlib, hash_method)).hexdigest()
+        generated = hmac.new(secret.encode("UTF-8"), body, getattr(hashlib, hash_method)).hexdigest()
         if event != "push" or generated != signature:
             self.master.log("Invalid Github webook event/signature. Event = {}, Signature = {}, Generated = {}", event, signature, generated, cls="Web.Update")
             returnValue("Invalid event or signature")
@@ -191,8 +191,6 @@ class Update(Base):
         self.master.dispatch("irc", "message", u"#commie-staff", irc.nickname.decode("utf8"), u".update")
         self.master.log("Pulling changes from Github due to webhook...", cls="Web.Update")
 
-        args = json.loads(body)
-
         FORMATS = {
             "repo": u"\00313{}\017",
             "branch": u"\00306{}\017",
@@ -200,9 +198,13 @@ class Update(Base):
             "author": u"\00315{}\017",
             "message": u"{}"
         }
-        for commit in args["distinct_commits"]:
-            repo = FORMATS["repo"].format(args["repository"]["name"])
-            branch = FORMATS["branch"].format(args["ref_name"])
+        
+        args = json.loads(body)
+        branch_name = args["ref_name"] or args["ref"].sub("refs/heads/", "")
+        repo = FORMATS["repo"].format(args["repository"]["name"])
+        branch = FORMATS["branch"].format(branch_name)
+
+        for commit in args["commits"]:
             sha1 = FORMATS["sha1"].format(commit["id"][:8])
             author = FORMATS["author"].format(commit["author"]["name"])
             message = FORMATS["message"].format(commit["message"].partition("\n")[0])
