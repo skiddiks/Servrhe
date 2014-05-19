@@ -227,7 +227,10 @@ class Update(Base):
         before_sha = FORMATS["hash"].format(args["before"][:8])
         after_sha = FORMATS["hash"].format(args["after"][:8])
         pusher = FORMATS["name"].format(args["pusher"]["name"] if "pusher" in args else "somebody")
-        distinct_commits = args.get("distinct_commits", [])
+        if "distinct_commits" in args:
+            distinct_commits = args["distinct_commits"]
+        else:
+            distinct_commits = [commit for commit in args["commits"] if commit["distinct"] and commit["message"].strip()]
 
         if args["created"]:
             if args["ref"].startswith("refs/tags/"):
