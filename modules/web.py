@@ -39,7 +39,7 @@ class Module(Base):
         self.putChild("progress", self)
         self.putChild("twilio", Twilio(master))
         self.putChild("twilio-incoming", TwilioIncoming(master))
-        self.putChild("mahoyo", Mahoyo(master))
+        #self.putChild("mahoyo", Mahoyo(master))
         self.putChild("update", Update(master))
         self.putChild("lewd", NoDirListingFile("lewd"))
 

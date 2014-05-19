@@ -150,7 +150,7 @@ class Module(object):
         if code != 0:
             self.log(out)
             self.log(err)
-            raise self.master.modules["commands"].exception("{} [OUT: {}] [ERR: {}]".format(error_message, out.replace("\n"," "), err.replace("\n"," ")))
+            raise self.master.modules["commands"].exception("{} [OUT: {}] [ERR: {}]".format(error_message, out.replace("\n"," ")[-60:], err.replace("\n"," ")[-60:]))
 
     @inlineCallbacks
     def _download(self, folder):
