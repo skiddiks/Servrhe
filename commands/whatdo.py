@@ -6,13 +6,14 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user, victim):
-    manager.dispatch("update", guid, u"Waiting on alias.resolve")
-    victim = yield manager.master.modules["alias"].resolve(victim)
-    positions = set()
-    shows = set()
-
     if victim.startswith("."):
         raise manager.exception(u".kb {} don't try shit like that".format(user))
+
+    manager.dispatch("update", guid, u"Waiting on alias.resolve")
+    victim = yield manager.master.modules["alias"].resolve(victim)
+    uid = yield manager.master.modules["db"].alias2userId(victim)
+    positions = set()
+    shows = set()
 
     if victim == u"fugiman":
         positions.add(u"technowizard")
@@ -38,8 +39,8 @@ def command(guid, manager, irc, channel, user, victim):
         for position in ["translator", "editor", "timer", "typesetter", "qc"]:
             blame = getattr(show, position)
             manager.dispatch("update", guid, u"Waiting on alias.resolve")
-            staller = yield manager.master.modules["alias"].resolve(blame.name)
-            if staller == victim:
+            staller = yield manager.master.modules["db"].alias2userId(blame.name)
+            if staller == uid:
                 positions.add(position)
                 if show.name.abbreviation:
                     shows.add(show.name.abbreviation)
