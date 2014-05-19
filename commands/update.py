@@ -9,11 +9,16 @@ config = {
 
 def command(guid, manager, irc, channel, user):
     manager.dispatch("update", guid, u"Updating Git repository")
-    out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("git"), args=["pull"], env=os.environ)
+    out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("git"), args=["fetch"], env=os.environ)
     if code != 0:
         manager.log(out)
         manager.log(err)
-        raise manager.exception(u"Aborted updating: Couldn't pull from github")
+        raise manager.exception(u"Aborted updating: Couldn't fetch from github")
+    out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("git"), args=["reset", "--hard", "origin/master"], env=os.environ)
+    if code != 0:
+        manager.log(out)
+        manager.log(err)
+        raise manager.exception(u"Aborted updating: Couldn't reset to origin/master")
 
     # Delete compiled files so that we can delete commands
     yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("find"), args=[".", "-type", "f", "-name", "*.pyc", "-delete"], env=os.environ)
