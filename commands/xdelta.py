@@ -138,7 +138,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, no_chapte
     with open(os.path.join(guid, script), "r") as f:
         lines = f.readlines()
     found_events = False
-    for i, line in lines:
+    for i, line in enumerate(lines):
         if not found_events:
             if line.strip() == "[Events]":
                 found_events = True
