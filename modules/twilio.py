@@ -103,10 +103,10 @@ class Module(object):
 
     @inlineCallbacks
     def validate(self, request):
-        url = request.uri
+        url = "http://servrhe.fugiman.com" + request.uri
         data = sorted(request.args.items())
         signature = request.requestHeaders.getRawHeaders("X-Twilio-Signature")
-        signature = signature[0] if signature else None
+        signature = signature[0] if signature else "None"
         auth_token = yield self.config.get("pass")
 
         for key, values in data:
@@ -115,5 +115,5 @@ class Module(object):
 
         generated = base64.b64encode(hmac.new(auth_token.encode("UTF-8"), url, hashlib.sha1).digest())
 
-        self.log("Twilio Signature Verification: {} -> {} = {!s}", url, generated, signature)
+        self.log("Twilio Signature Verification: {} -> {} = {}", url, generated, signature)
         returnValue(signature == generated)
