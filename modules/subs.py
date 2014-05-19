@@ -264,7 +264,7 @@ class Module(object):
                     addError("sign missing blur", WARNING("Missing Blur", line.text))
 
             # Check for malformed tags
-            highlighted, changes = re.subn("|".join([r"\\\\", r"\\}", r"}}", r"{{", r"\\blur\.", r"\\bord\.", r"\\shad\.", r"\\(alpha|[1234]a)(?!&H[0-9A-Fa-f]{2}&)", r"\\([1234]c)(?!&H[0-9A-Fa-f]{6}&)"]), lambda m: ERROR(m.group(0), bg=True), line.text, flags=re.I)
+            highlighted, changes = re.subn("|".join([r"\\\\", r"\\}", r"}}", r"{{", r"\\blur\.", r"\\bord\.", r"\\shad\.", r"\\(alpha|[1234]a)(?!&H[0-9A-Fa-f]{2}&|$|\\)", r"\\([1234]c)(?!&H[0-9A-Fa-f]{6}&)"]), lambda m: ERROR(m.group(0), bg=True), line.text, flags=re.I)
             if changes:
                 addError("malformed", ERROR("Malformed Tags", highlighted))
 
