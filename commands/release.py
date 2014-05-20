@@ -203,16 +203,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     info_link, download_link = yield manager.master.modules["nyaa"].upload(guid, torrent.encode("utf8"))
     irc.notice(user, u"Uploaded to Nyaa")
 
-    # Step 8: Upload torrent link to TT
-    try:
-        manager.dispatch("update", guid, u"Uploading torrent to TT")
-        yield manager.master.modules["tt"].upload(download_link)
-    except:
-        irc.msg(channel, u"Couldn't upload to TT. Continuing to release {} regardless.".format(show.name.english))
-    else:
-        irc.notice(user, u"Uploaded to TT")
-
-    # Step 9: Create blog post
+    # Step 8: Create blog post
     try:
         manager.dispatch("update", guid, u"Uploading preview image to blog")
         img_link = yield manager.master.modules["blog"].uploadImage(**preview)
@@ -223,7 +214,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     else:
         irc.notice(user, u"Created blog post")
 
-    # Step 10: Mark show finished on showtimes
+    # Step 9: Mark show finished on showtimes
     if not previous:
         try:
             manager.dispatch("update", guid, u"Marking show as finished on showtimes")
@@ -234,18 +225,18 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     for c in set([u"#commie-staff", u"#commie-subs", channel]):
         irc.msg(c, u"{} {:02d}{} released. Torrent @ {}".format(show.name.english, episode, version, info_link))
 
-    # Step 11: Update the topic
+    # Step 10: Update the topic
     manager.dispatch("update", guid, u"Updating Topic")
     yield manager.master.modules["showtimes"].updateTopic()
 
-    # Step 12: Wait on XDCC
+    # Step 11: Wait on XDCC
     irc.notice(user, u"Waiting for XDCC")
     manager.dispatch("update", guid, u"Uploading to XDCC servers")
     yield DeferredList(xdcc_deferreds)
     #yield manager.master.modules["sftp"].putLaeTorrent(guid, torrent)
     irc.notice(user, u"Uploaded to XDCC")
 
-    # Step 13: Add to Shiroi
+    # Step 12: Add to Shiroi
     shutil.move(os.path.join(guid, complete), os.path.join(u"/var/www/shiroi.fugiman.com/watch", complete))
 
     returnValue(info_link)
