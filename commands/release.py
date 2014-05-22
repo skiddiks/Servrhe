@@ -184,7 +184,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     # Step 4: Upload episode to seedbox
     xdcc_deferreds = []
     xdcc_deferreds.append(manager.master.modules["ftp"].putXDCC(guid, complete, show.folder.xdcc))
-    xdcc_deferreds.append(manager.master.modules["ftp"].putXDCC2(guid, complete))
+    #xdcc_deferreds.append(manager.master.modules["ftp"].putXDCC2(guid, complete))
     #xdcc_deferreds.append(manager.master.modules["sftp"].putLaeVideo(guid, complete))
 
     irc.notice(user, u"Uploading to seedbox and XDCC")
