@@ -135,33 +135,33 @@ def command(guid, manager, irc, channel, user, show, previous = False, no_chapte
             raise manager.exception(u"Aborted creating xdelta for {}: Error occured in QC. Use `.errors [line number] [filename]` for more info.".format(show.name.english))
 
     # Step 5b: Break Haali Splitter
-    with open(os.path.join(guid, script), "r") as f:
-        lines = f.readlines()
-    found_events = False
-    for i, line in enumerate(lines):
-        if not found_events:
-            if line.strip() == "[Events]":
-                found_events = True
-            continue
-        if line.startswith("Format: "):
-            keys = [k.strip() for k in line[8:].split(",")]
-            break
-    if keys:
-        d = {
-            "Layer": "0",
-            "Start": "0:00:00.00",
-            "End": "0:00:00.00",
-            "Style": "Default",
-            "Name": "",
-            "MarginL": "0",
-            "MarginR": "0",
-            "MarginV": "0",
-            "Effect": "",
-            "Text": "Haali Splitter a shit. " * 11400
-        }
-        lines.insert(i+1, "Comment: {}\n".format(",".join([d[k] if k in d else "" for k in keys])))
-        with open(os.path.join(guid, script), "w") as f:
-            f.write("".join(lines))
+    #with open(os.path.join(guid, script), "r") as f:
+    #    lines = f.readlines()
+    #found_events = False
+    #for i, line in enumerate(lines):
+    #    if not found_events:
+    #        if line.strip() == "[Events]":
+    #            found_events = True
+    #        continue
+    #    if line.startswith("Format: "):
+    #        keys = [k.strip() for k in line[8:].split(",")]
+    #        break
+    #if keys:
+    #    d = {
+    #        "Layer": "0",
+    #        "Start": "0:00:00.00",
+    #        "End": "0:00:00.00",
+    #        "Style": "Default",
+    #        "Name": "",
+    #        "MarginL": "0",
+    #        "MarginR": "0",
+    #        "MarginV": "0",
+    #        "Effect": "",
+    #        "Text": "Haali Splitter a shit. " * 11400
+    #    }
+    #    lines.insert(i+1, "Comment: {}\n".format(",".join([d[k] if k in d else "" for k in keys])))
+    #    with open(os.path.join(guid, script), "w") as f:
+    #        f.write("".join(lines))
 
     # Step 6: MKVMerge
     arguments = ["-o", os.path.join(guid, fname)]
