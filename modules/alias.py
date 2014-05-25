@@ -16,7 +16,7 @@ class Module(object):
     def resolve(self, name):
         result = yield self.master.modules["db"].alias2userName(name)
 
-        if not result:
+        if result is None:
             yield self.master.modules["db"].createUser(name)
             result = name
 
