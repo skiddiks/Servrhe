@@ -324,7 +324,7 @@ class Module(object):
                 addError("jdpsetting", WARNING("jdpsetting", highlighted))
 
             # Check for brainchild derps ("senpai")
-            highlighted, changes = re.subn(r"se[nm]pai|[wt]here're|this'[sd]|when'[drv]|guys'[rv]e|ll've|n't've", lambda m: ERROR(m.group(0), bg=True), line.visibletext, flags=re.I)
+            highlighted, changes = re.subn(r"se[nm]pai|[wt]here're|this'[sd]|when'[drv]|guys'[rv]e|ll've", lambda m: ERROR(m.group(0), bg=True), line.visibletext, flags=re.I)
             if changes:
                 addError("brainchild", ERROR("Brainchildesque Stupidity", highlighted))
 
