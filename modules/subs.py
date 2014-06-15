@@ -222,7 +222,7 @@ class Module(object):
             cps = length / (duration / 1000.0) if duration else 0 # Convert milliseconds to seconds
 
             # Determine type & track number of lines of each
-            if line["Effect"] == "qcd":
+            if line["Effect"] == "skiddiks pls":
                 results["skipped"] += 1
                 line_type = LINE_TYPES.SKIPPED
             elif line["key"] == "Comment":
