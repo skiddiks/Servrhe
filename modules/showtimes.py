@@ -19,6 +19,7 @@ SubstatusObject = namedtuple("SubstatusObject", ["position", "name", "episode", 
 NextObject = namedtuple("NextObject", ["name", "episode", "when"])
 
 SHOW_ALIASES = {
+    "gayer swimming": "Free! Eternal Summer",
     "pleins": "Toaru Hikuushi e no Koiuta",
     "cadence": "Yowamushi Pedal",
     "bikes": "Yowamushi Pedal",
