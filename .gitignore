@@ -9,3 +9,6 @@ twistd.pid
 web.sock
 web.sock.lock
 twisted/plugins/dropin.cache
+
+# Fuck macs
+.DS_Store
