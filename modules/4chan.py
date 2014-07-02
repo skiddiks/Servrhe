@@ -28,7 +28,7 @@ class Module(object):
             irc = self.master.modules["irc"]
             words = yield self.config.get("words", [])
 
-            response = yield treq.get("http://api.4chan.org/a/threads.json")
+            response = yield treq.get("http://a.4cdn.org/a/threads.json")
             threads = yield treq.json_content(response)
 
             nthreads, check = {}, []
@@ -43,7 +43,7 @@ class Module(object):
             if not self.initial:
                 threads = []
                 for t in check:
-                    response = yield treq.get("http://api.4chan.org/a/res/{:d}.json".format(t))
+                    response = yield treq.get("http://a.4cdn.org/a/res/{:d}.json".format(t))
                     if response.code == 200:
                         data = yield treq.json_content(response)
                         found, posts = set(), []
