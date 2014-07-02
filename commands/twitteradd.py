@@ -13,4 +13,6 @@ def command(guid, manager, irc, channel, user, name, handle):
         raise manager.exception(u"\"@{}\" is already in the twitter list".format(handle))
 
     twitters[name] = handle
+    
     yield manager.master.modules["config"].set("nyaa", "twitter", twitters)
+    irc.msg(channel, u"Added {} -> @{} to the twitter list".format(name, handle))
