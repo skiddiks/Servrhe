@@ -10,4 +10,4 @@ def command(guid, manager, irc, channel, user, name):
         raise manager.exception(u"\"{}\" isn't in the twitter list".format(name))
 
     del twitters[name]
-	yield manager.master.modules["config"].set("nyaa", "twitter", twitters)
+    yield manager.master.modules["config"].set("nyaa", "twitter", twitters)
