@@ -5,7 +5,7 @@ config = {
 }
 
 def command(guid, manager, irc, channel, user, channels, reverse = False, preserve = False):
-    channels = channels if preserve else channels.split(" ")
+    channels = [channels] if preserve else channels.split(" ")
     for c in channels:
         if not reverse:
             irc.join(c)
