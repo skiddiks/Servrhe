@@ -18,7 +18,7 @@ QUERIES = {
     "number_list": lambda f: f('SELECT `users`.`name`, `numbers`.`number` FROM `numbers` INNER JOIN `users` ON `numbers`.`user_id` = `users`.`id`'),
     "channel_list": lambda f: f('SELECT `name`, `password` FROM `channels` WHERE `autoconnect` = 1'),
     "channel_get": lambda f, channel: f('SELECT `name`, `password`, `autoconnect` FROM `channels` WHERE `name` = %s', (channel, )),
-    "channel_get": lambda f, c, p, ac: f('INSERT INTO `channels` (`name`, `password`, `autoconnect`) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE `password` = %s, `autoconnect` = %s', (c, p, ac, p, ac)),
+    "channel_set": lambda f, c, p, ac: f('INSERT INTO `channels` (`name`, `password`, `autoconnect`) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE `password` = %s, `autoconnect` = %s', (c, p, ac, p, ac)),
     "permission_get": lambda f, name: f('SELECT `id` FROM `permissions` WHERE `name` = %s', (name, )),
     "permission_grant": lambda f, uid, pid: f('INSERT INTO `user_permissions` (`user_id`, `permission_id`) VALUES (%s, %s)', (uid, pid))
 }
