@@ -155,7 +155,7 @@ class Module(object):
             name = yield self.alias2userId(name)
             results = yield QUERIES["markov_initial_named"](self.logAndRun, name)
         else:
-            results = yield QUERIES["markov_initial"](self.master.db.runQuery)
+            results = yield QUERIES["markov_initial"](self.logAndRun)
         returnValue(results[0] if results else [None, None, None])
 
     @inlineCallbacks
@@ -164,7 +164,7 @@ class Module(object):
             name = yield self.alias2userId(name)
             results = yield QUERIES["markov_forward_named"](self.logAndRun, w1, w2, name)
         else:
-            results = yield QUERIES["markov_forward"](self.master.db.runQuery, w1, w2)
+            results = yield QUERIES["markov_forward"](self.logAndRun, w1, w2)
         returnValue(results[0] if results else [None, None, None])
 
     @inlineCallbacks
@@ -173,7 +173,7 @@ class Module(object):
             name = yield self.alias2userId(name)
             results = yield QUERIES["markov_middle_named"](self.logAndRun, w2, name)
         else:
-            results = yield QUERIES["markov_middle"](self.master.db.runQuery, w2)
+            results = yield QUERIES["markov_middle"](self.logAndRun, w2)
         returnValue(results[0] if results else [None, None, None])
 
     @inlineCallbacks
@@ -182,5 +182,5 @@ class Module(object):
             name = yield self.alias2userId(name)
             results = yield QUERIES["markov_backward_named"](self.logAndRun, w2, w3, name)
         else:
-            results = yield QUERIES["markov_backward"](self.master.db.runQuery, w2, w3)
+            results = yield QUERIES["markov_backward"](self.logAndRun, w2, w3)
         returnValue(results[0] if results else [None, None, None])
