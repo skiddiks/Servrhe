@@ -169,7 +169,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, no_chapte
         arguments.extend(["--no-chapters", "--chapters", os.path.join(guid, chapters)])
     for font in fonts:
         arguments.extend(["--attachment-mime-type", "application/x-truetype-font", "--attach-file", os.path.join(guid, font)])
-    arguments.extend([os.path.join(guid, premux), os.path.join(guid, script)])
+    arguments.extend([os.path.join(guid, premux), "--compression", "0:zlib", os.path.join(guid, script)])
     manager.dispatch("update", guid, u"Merging premux, script, chapters, and fonts")
     out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvmerge"), args=arguments, env=os.environ)
     if code != 0:
