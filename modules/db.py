@@ -65,7 +65,7 @@ class Module(object):
         self.master = master
 
     def logAndRun(self, query, args=None):
-        self.log(u"{}", query % args if args else query)
+        self.log(u"{}", query % args if args else query, func="logAndRun")
         return self.master.db.runQuery(query, args)
 
     def stop(self):
