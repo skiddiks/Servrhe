@@ -103,9 +103,9 @@ class Module(object):
         if not word2:
             result = yield self.master.modules["db"].markovInitial(name)
         elif word1:
-            result = yield self.master.modules["db"].markovForward(name, normalize(word2), normalize(word3))
+            result = yield self.master.modules["db"].markovForward(name, normalize(word1), normalize(word2))
         elif word3:
-            result = yield self.master.modules["db"].markovBackward(name, normalize(word1), normalize(word2))
+            result = yield self.master.modules["db"].markovBackward(name, normalize(word2), normalize(word3))
         else:
             result = yield self.master.modules["db"].markovMiddle(name, normalize(word2))
 
