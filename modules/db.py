@@ -64,7 +64,7 @@ class Module(object):
     def __init__(self, master):
         self.master = master
 
-    def logAndRun(query, args):
+    def logAndRun(self, query, args):
         self.log(u"{}", query % args)
         return self.master.db.runQuery(query, args)
 
