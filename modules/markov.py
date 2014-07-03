@@ -1,39 +1,22 @@
 # -*- coding: utf-8 -*-
-dependencies = []
-class Module(object):
-    def __init__(self, master):
-        pass
-    def stop(self):
-        pass
 
-"""
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, maybeDeferred, returnValue
 from twisted.internet.task import LoopingCall
 from collections import deque, Counter
-from txmongo._pymongo.son import SON
-import datetime, json, inspect, random, re, txmongo
+import datetime, json, inspect, random, re
 
 dependencies = ["config", "alias"]
 
-def aggregate(self, pipeline):
-    if not isinstance(pipeline, (dict, list, tuple)):
-        raise TypeError("pipeline must be a dict, list or tuple")
-
-    if isinstance(pipeline, dict):
-        pipeline = [pipeline]
-
-    command = SON([("aggregate", self._collection_name)])
-    command.update({"pipeline": pipeline})
-
-    return self._database["$cmd"].find_one(command)
+def normalize(word):
+  if word is None:
+    return None
+  return re.sub(r'[^a-z0-9-]', '', word.lower().strip())
 
 class Module(object):
     def __init__(self, master):
         self.master = master
         self.config = master.modules["config"].interface("markov")
-        self.db = master.db.markov
-        self.db.aggregate = lambda p: aggregate(self.db, p)
         self.ranking = {}
         self.rankingLoop = LoopingCall(self.loadRanking)
         self.rankingLoop.start(60)
@@ -45,20 +28,20 @@ class Module(object):
 
     @inlineCallbacks
     def loadRanking(self):
-        result = yield self.db.aggregate([{"$group": {"_id": "$name", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}])
+        result = yield self.master.modules["db"].markovRankings()
         self.ranking = {}
-        for rank, data in enumerate(result["result"]):
-            self.ranking[data["_id"].lower()] = {
+        for rank, data in enumerate(result):
+            self.ranking[data["name"].lower()] = {
                 "rank": rank+1,
-                "name": data["_id"],
-                "lines": data["count"]
+                "name": data["name"],
+                "words": data["words"]
             }
     
     @inlineCallbacks
     def learn(self, name, phrase, channel):
         name = yield self.master.modules["alias"].resolve(name)
-
-        now = datetime.datetime.utcnow()
+        uid = yield self.master.modules["db"].userLookup(name)
+        cid = yield self.master.modules["db"].channelLookup(channel)
 
         words = phrase.split(" ")
         c1 = [None] + words[:-1]
@@ -66,20 +49,9 @@ class Module(object):
         c3 = words[1:] + [None]
         chain = zip(c1, c2, c3)
 
-        documents = []
+        rows = [[uid, cid, w1, w2, w3, normalize(w1), normalize(w2), normalize(w3)] for w1, w2, w3 in chain]
 
-        for w1, w2, w3 in chain:
-            documents.append({
-                "name": name,
-                "word1": w1,
-                "word2": w2,
-                "word3": w3,
-                "added": now,
-                "source": channel,
-                "random": random.random()
-            })
-
-        yield self.db.insert(documents, safe=True)
+        yield self.master.modules["db"].markovLearn(rows)
 
     @inlineCallbacks
     def ramble(self, name=None, seed=None, entropy=False):
@@ -181,4 +153,3 @@ class Module(object):
         match1 = re.match("\[Quote\] #\d+ added by .* ago.", message)
         match2 = re.match("\[Quote\] \d+ matches found: #[\d,]+", message)
         return not (user == "Quotes" and (match1 or match2))
-"""

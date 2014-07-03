@@ -20,7 +20,11 @@ QUERIES = {
     "channel_get": lambda f, channel: f('SELECT `name`, `password`, `autoconnect` FROM `channels` WHERE `name` = %s', (channel, )),
     "channel_set": lambda f, c, p, ac: f('INSERT INTO `channels` (`name`, `password`, `autoconnect`) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE `password` = %s, `autoconnect` = %s', (c, p, ac, p, ac)),
     "permission_get": lambda f, name: f('SELECT `id` FROM `permissions` WHERE `name` = %s', (name, )),
-    "permission_grant": lambda f, uid, pid: f('INSERT INTO `user_permissions` (`user_id`, `permission_id`) VALUES (%s, %s)', (uid, pid))
+    "permission_grant": lambda f, uid, pid: f('INSERT INTO `user_permissions` (`user_id`, `permission_id`) VALUES (%s, %s)', (uid, pid)),
+    "user_lookup": lambda f, name: f('SELECT `id` FROM `users` WHERE `users`.`name` = %s', (name, )),
+    "channel_lookup": lambda f, name: f('SELECT `id` FROM `channels` WHERE `channels`.`name` = %s', (name, )),
+    "markov_rankings": lambda f: f('SELECT `users`.`name`, COUNT(`markov`.`id`) FROM `markov` INNER JOIN `users` ON `markov`.`user_id` = `users`.`id` GROUP BY `users`.`name` ORDER BY COUNT(`markov`.`id`) DESC'),
+    "markov_learn": lambda f, r: f('INSERT INTO `markov` (`user_id`, `channel_id`, `word1`, `word2`, `word3`, `normalized1`, `normalized2`, `normalized3`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', r)
 }
 
 def createUser(cursor, name):
@@ -44,6 +48,9 @@ def grantPermission(cursor, name, permission):
 
     QUERIES["permission_grant"](cursor.execute, uid, pid)
     return True
+
+def markovLearn(cursor, rows):
+    QUERIES["markov_learn"](cursor.executemany, rows)
 
 class Module(object):
     def __init__(self, master):
@@ -111,3 +118,22 @@ class Module(object):
 
     def grantPermission(self, name, permission):
         return self.master.db.runInteraction(grantPermission, name, permission)
+
+    @inlineCallbacks
+    def userLookup(self, name):
+        result = yield QUERIES["user_lookup"](self.master.db.runQuery, name)
+        returnValue(result[0][0] if result else None)
+
+    @inlineCallbacks
+    def channelLookup(self, name):
+        result = yield QUERIES["channel_lookup"](self.master.db.runQuery, name)
+        returnValue(result[0][0] if result else None)
+
+    @inlineCallbacks
+    def markovRankings(self):
+        results = yield QUERIES["markov_rankings"](self.master.db.runQuery)
+        returnValue([{"name": r[0], "words": r[1]} for r in results])
+
+    def markovLearn(self, rows):
+        return self.master.db.runInteraction(markovLearn, rows)
+
