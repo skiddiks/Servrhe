@@ -43,7 +43,7 @@ class Module(object):
         uid = yield self.master.modules["db"].userLookup(name)
         cid = yield self.master.modules["db"].channelLookup(channel)
 
-        words = phrase.split(" ")
+        words = [w.encode("UTF-8") for w in phrase.split(" ")]
         c1 = [None] + words[:-1]
         c2 = words[:]
         c3 = words[1:] + [None]
@@ -72,12 +72,11 @@ class Module(object):
                 message.append(after)
                 while message[0] is not None and len(message) < 80:
                     if entropy:
-                        word = False
+                        word = None
                     else:
                         word, _, _ = yield self.find(name, word2=message[0], word3=message[1])
-                    if word is False:
+                    if word is None:
                         word, _, _ = yield self.find(name, word2=message[0])
-                        word = None if word is False else word
                     message.appendleft(word)
             else:
                 words = yield self.find(name, word1=None)
@@ -88,12 +87,11 @@ class Module(object):
 
         while message[-1] is not None and len(message) < 80:
             if entropy:
-                word = False
+                word = None
             else:
                 _, _, word = yield self.find(name, word1=message[-2], word2=message[-1])
-            if word is False:
+            if word is None:
                 _, _, word = yield self.find(name, word2=message[-1])
-                word = None if word is False else word
             message.append(word)
 
         message = list(message)
@@ -103,18 +101,18 @@ class Module(object):
         returnValue(response)
 
     @inlineCallbacks
-    def find(self, name, **query):
-        rand = random.random()
-        query["random"] = {"$gte": rand}
-        if name:
-            query["name"] = name
-        result = yield self.db.find(query, fields=["word1","word2","word3"], limit=1, filter=txmongo.filter.sort(txmongo.filter.ASCENDING("random")))
-        if not result:
-            query["random"] = {"$lte": rand}
-            result = yield self.db.find(query, fields=["word1","word2","word3"], limit=1, filter=txmongo.filter.sort(txmongo.filter.DESCENDING("random")))
-        if not result:
-            returnValue((False, False, False))
-        returnValue((result[0]["word1"], result[0]["word2"], result[0]["word3"]))
+    def find(self, name, word1=None, word2=None, word3=None):
+        if not word2:
+            return [None, None, None]
+
+        if word1:
+            result = yield self.master.modules["db"].markovForward(name, normalized(word2), normalized(word3))
+        elif word3:
+            result = yield self.master.modules["db"].markovBackward(name, normalized(word1), normalized(word2))
+        else:
+            result = yield self.master.modules["db"].markovMiddle(name, normalized(word2))
+
+        returnValue(result)
 
     @inlineCallbacks
     def count(self, word):

@@ -24,7 +24,13 @@ QUERIES = {
     "user_lookup": lambda f, name: f('SELECT `id` FROM `users` WHERE `users`.`name` = %s', (name, )),
     "channel_lookup": lambda f, name: f('SELECT `id` FROM `channels` WHERE `channels`.`name` = %s', (name, )),
     "markov_rankings": lambda f: f('SELECT `users`.`name`, COUNT(`markov`.`id`) FROM `markov` INNER JOIN `users` ON `markov`.`user_id` = `users`.`id` GROUP BY `users`.`name` ORDER BY COUNT(`markov`.`id`) DESC'),
-    "markov_learn": lambda f, r: f('INSERT INTO `markov` (`user_id`, `channel_id`, `word1`, `word2`, `word3`, `normalized1`, `normalized2`, `normalized3`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', r)
+    "markov_learn": lambda f, r: f('INSERT INTO `markov` (`user_id`, `channel_id`, `word1`, `word2`, `word3`, `normalized1`, `normalized2`, `normalized3`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', r),
+    "markov_forward": lambda f, w1, w2: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized1` = %s AND `normalized2` = %s ORDER BY RAND() LIMIT 1', (w1, w2)),
+    "markov_forward_named": lambda f, w1, w2, n: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized1` = %s AND `normalized2` = %s AND `user_id` = %s ORDER BY RAND() LIMIT 1', (w1, w2, n)),
+    "markov_middle": lambda f, w2: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized2` = %s ORDER BY RAND() LIMIT 1', (w2, )),
+    "markov_middle_named": lambda f, w2, n: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized2` = %s AND `user_id` = %s ORDER BY RAND() LIMIT 1', (w2, n)),
+    "markov_backward": lambda f, w2, w3: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized2` = %s AND `normalized3` = %s ORDER BY RAND() LIMIT 1', (w2, w3)),
+    "markov_backward_named": lambda f, w2, w3, n: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized2` = %s AND `normalized3` = %s AND `user_id` = %s ORDER BY RAND() LIMIT 1', (w2, w3, n))
 }
 
 def createUser(cursor, name):
@@ -137,3 +143,29 @@ class Module(object):
     def markovLearn(self, rows):
         return self.master.db.runInteraction(markovLearn, rows)
 
+    @inlineCallbacks
+    def markovForward(self, name, w1, w2):
+        if name:
+            name = yield self.alias2userId(name)
+            results = yield QUERIES["markov_forward_named"](self.master.db.runQuery, w1, w2, name)
+        else:
+            results = yield QUERIES["markov_forward"](self.master.db.runQuery, w1, w2)
+        returnValue(results[0] if results else [None, None, None])
+
+    @inlineCallbacks
+    def markovMiddle(self, name, w2, w3):
+        if name:
+            name = yield self.alias2userId(name)
+            results = yield QUERIES["markov_middle_named"](self.master.db.runQuery, w2, name)
+        else:
+            results = yield QUERIES["markov_middle"](self.master.db.runQuery, w2)
+        returnValue(results[0] if results else [None, None, None])
+
+    @inlineCallbacks
+    def markovBackward(self, name, w2, w3):
+        if name:
+            name = yield self.alias2userId(name)
+            results = yield QUERIES["markov_backward_named"](self.master.db.runQuery, w2, w3, name)
+        else:
+            results = yield QUERIES["markov_backward"](self.master.db.runQuery, w2, w3)
+        returnValue(results[0] if results else [None, None, None])

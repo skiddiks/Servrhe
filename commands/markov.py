@@ -9,9 +9,6 @@ config = {
 cooldowns = {}
 
 def command(guid, manager, irc, channel, user, name = None, seed = None, duwang = False):
-    irc.msg(channel, u"This command is currently disabled due to the upgrade to v5. It'll return shortly. Thank you for your patience.")
-    return
-    
     manager.dispatch("update", guid, u"Waiting on manager.getPermissions")
     permissions = yield manager.getPermissions(user)
     now = datetime.datetime.utcnow()
