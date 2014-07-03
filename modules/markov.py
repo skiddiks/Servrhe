@@ -64,8 +64,6 @@ class Module(object):
 
         if seed:
             before, _, after = yield self.find(name, word2=seed)
-            before = None if before is False else before
-            after = None if after is False else after
             if before is not None or after is not None:
                 message.append(before)
                 message.append(seed)
@@ -103,14 +101,13 @@ class Module(object):
     @inlineCallbacks
     def find(self, name, word1=None, word2=None, word3=None):
         if not word2:
-            returnValue([None, None, None])
-
-        if word1:
-            result = yield self.master.modules["db"].markovForward(name, normalized(word2), normalized(word3))
+            result = yield self.master.modules["db"].markovInitial(name)
+        elif word1:
+            result = yield self.master.modules["db"].markovForward(name, normalize(word2), normalize(word3))
         elif word3:
-            result = yield self.master.modules["db"].markovBackward(name, normalized(word1), normalized(word2))
+            result = yield self.master.modules["db"].markovBackward(name, normalize(word1), normalize(word2))
         else:
-            result = yield self.master.modules["db"].markovMiddle(name, normalized(word2))
+            result = yield self.master.modules["db"].markovMiddle(name, normalize(word2))
 
         returnValue(result)
 

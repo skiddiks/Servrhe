@@ -25,6 +25,8 @@ QUERIES = {
     "channel_lookup": lambda f, name: f('SELECT `id` FROM `channels` WHERE `channels`.`name` = %s', (name, )),
     "markov_rankings": lambda f: f('SELECT `users`.`name`, COUNT(`markov`.`id`) FROM `markov` INNER JOIN `users` ON `markov`.`user_id` = `users`.`id` GROUP BY `users`.`name` ORDER BY COUNT(`markov`.`id`) DESC'),
     "markov_learn": lambda f, r: f('INSERT INTO `markov` (`user_id`, `channel_id`, `word1`, `word2`, `word3`, `normalized1`, `normalized2`, `normalized3`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', r),
+    "markov_initial": lambda f: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized1` IS NULL ORDER BY RAND() LIMIT 1'),
+    "markov_initial_named": lambda f, n: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized1` IS NULL AND `user_id` = %s ORDER BY RAND() LIMIT 1', (n, )),
     "markov_forward": lambda f, w1, w2: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized1` = %s AND `normalized2` = %s ORDER BY RAND() LIMIT 1', (w1, w2)),
     "markov_forward_named": lambda f, w1, w2, n: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized1` = %s AND `normalized2` = %s AND `user_id` = %s ORDER BY RAND() LIMIT 1', (w1, w2, n)),
     "markov_middle": lambda f, w2: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized2` = %s ORDER BY RAND() LIMIT 1', (w2, )),
@@ -142,6 +144,15 @@ class Module(object):
 
     def markovLearn(self, rows):
         return self.master.db.runInteraction(markovLearn, rows)
+
+    @inlineCallbacks
+    def markovInitial(self, name):
+        if name:
+            name = yield self.alias2userId(name)
+            results = yield QUERIES["markov_initial_named"](self.master.db.runQuery, name)
+        else:
+            results = yield QUERIES["markov_initial"](self.master.db.runQuery)
+        returnValue(results[0] if results else [None, None, None])
 
     @inlineCallbacks
     def markovForward(self, name, w1, w2):
