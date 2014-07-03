@@ -23,7 +23,7 @@ QUERIES = {
     "permission_grant": lambda f, uid, pid: f('INSERT INTO `user_permissions` (`user_id`, `permission_id`) VALUES (%s, %s)', (uid, pid)),
     "user_lookup": lambda f, name: f('SELECT `id` FROM `users` WHERE `users`.`name` = %s', (name, )),
     "channel_lookup": lambda f, name: f('SELECT `id` FROM `channels` WHERE `channels`.`name` = %s', (name, )),
-    "markov_rankings": lambda f: f('SELECT `users`.`name`, COUNT(`markov`.`id`) FROM `markov` INNER JOIN `users` ON `markov`.`user_id` = `users`.`id` GROUP BY `users`.`name` ORDER BY COUNT(`markov`.`id`) DESC'),
+    "markov_rankings": lambda f: f('SELECT `users`.`name`, COUNT(*) FROM `markov` INNER JOIN `users` ON `markov`.`user_id` = `users`.`id` GROUP BY `users`.`name` ORDER BY COUNT(*) DESC'),
     "markov_learn": lambda f, r: f('INSERT INTO `markov` (`user_id`, `channel_id`, `word1`, `word2`, `word3`, `normalized1`, `normalized2`, `normalized3`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', r),
     "markov_initial": lambda f: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized1` IS NULL ORDER BY RAND() LIMIT 1'),
     "markov_initial_named": lambda f, n: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized1` IS NULL AND `user_id` = %s ORDER BY RAND() LIMIT 1', (n, )),
