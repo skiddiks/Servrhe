@@ -103,7 +103,7 @@ class Module(object):
     @inlineCallbacks
     def find(self, name, word1=None, word2=None, word3=None):
         if not word2:
-            return [None, None, None]
+            returnValue([None, None, None])
 
         if word1:
             result = yield self.master.modules["db"].markovForward(name, normalized(word2), normalized(word3))
