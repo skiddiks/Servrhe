@@ -64,6 +64,10 @@ class Module(object):
     def __init__(self, master):
         self.master = master
 
+    def logAndRun(query, args):
+        self.log(u"{}", query % args)
+        return self.master.db.runQuery(query, args)
+
     def stop(self):
         pass
 
@@ -149,7 +153,7 @@ class Module(object):
     def markovInitial(self, name):
         if name:
             name = yield self.alias2userId(name)
-            results = yield QUERIES["markov_initial_named"](self.master.db.runQuery, name)
+            results = yield QUERIES["markov_initial_named"](self.logAndRun, name)
         else:
             results = yield QUERIES["markov_initial"](self.master.db.runQuery)
         returnValue(results[0] if results else [None, None, None])
@@ -158,16 +162,16 @@ class Module(object):
     def markovForward(self, name, w1, w2):
         if name:
             name = yield self.alias2userId(name)
-            results = yield QUERIES["markov_forward_named"](self.master.db.runQuery, w1, w2, name)
+            results = yield QUERIES["markov_forward_named"](self.logAndRun, w1, w2, name)
         else:
             results = yield QUERIES["markov_forward"](self.master.db.runQuery, w1, w2)
         returnValue(results[0] if results else [None, None, None])
 
     @inlineCallbacks
-    def markovMiddle(self, name, w2, w3):
+    def markovMiddle(self, name, w2):
         if name:
             name = yield self.alias2userId(name)
-            results = yield QUERIES["markov_middle_named"](self.master.db.runQuery, w2, name)
+            results = yield QUERIES["markov_middle_named"](self.logAndRun, w2, name)
         else:
             results = yield QUERIES["markov_middle"](self.master.db.runQuery, w2)
         returnValue(results[0] if results else [None, None, None])
@@ -176,7 +180,7 @@ class Module(object):
     def markovBackward(self, name, w2, w3):
         if name:
             name = yield self.alias2userId(name)
-            results = yield QUERIES["markov_backward_named"](self.master.db.runQuery, w2, w3, name)
+            results = yield QUERIES["markov_backward_named"](self.logAndRun, w2, w3, name)
         else:
             results = yield QUERIES["markov_backward"](self.master.db.runQuery, w2, w3)
         returnValue(results[0] if results else [None, None, None])
