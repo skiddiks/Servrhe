@@ -1,11 +1,40 @@
 from twisted.internet.defer import returnValue
 from twisted.internet.utils import getProcessOutputAndValue
-import binascii, fnmatch, os, re
+import binascii, fnmatch, os, re, shutil, zipfile, gzip
 
 config = {
     "access": "admin",
     "help": ".xdelta [show name] (--previous) (--no-chapters) (--roman) (--crc=HEX) (--group=BSS-Commie) (--title=TITLE) || Creates an xdelta for the current episode of the show. Requires an .mkv, .ass and .xml file. Options are self explanatory."
 }
+
+def unpackScript(exception, folder, filename):
+    base, _, ext = filename.rpartition(".")
+
+    if ext == "ass":
+        shutil.copy(os.path.join(folder, filename), os.path.join(folder, base))
+        return unpackScript(exception, folder, base)
+
+    elif ext == "zip":
+        with zipfile.ZipFile(os.path.join(folder, filename), "r", allowZip64=True) as zf:
+            scripts = fnmatch.filter(zf.namelist(), "*.ass")
+
+            if not scripts:
+                raise exception(u"Couldn't find any scripts in zip archive: {}".format(filename))
+            if len(scripts) > 1:
+                raise exception(u"Found too many scripts in zip archive {}: {}".format(filename, u", ".join(scripts)))
+
+            script = scripts[0]
+            zf.extract(script, folder)
+        return unpackScript(exception, folder, script)
+
+    elif ext == "gzip":
+        with gzip.open(os.path.join(folder, filename), "r") as gf:
+            with open(os.path.join(folder, base), "w") as f:
+                f.write(gf.read())
+        return unpackScript(exception, folder, base)
+        
+    else:
+        return filename
 
 def command(guid, manager, irc, channel, user, show, previous = False, no_chapters = False, no_fonts = False, no_qc = False, roman = False, crc = None, group = None, title = None, admin_mode = False):
     show = manager.master.modules["showtimes"].resolve(show)
@@ -44,6 +73,9 @@ def command(guid, manager, irc, channel, user, show, previous = False, no_chapte
         irc.msg(channel, u"Found premux, script and chapters: {}, {} and {}".format(premux, script, chapters))
     else:
         irc.msg(channel, u"Found premux and script: {} and {}".format(premux, script))
+
+    # Step 2b: Unpack the script
+    script = unpackScript(manager.exception, guid, script)
 
     # Step 3: Download fonts
     manager.dispatch("update", guid, u"Downloading fonts")
