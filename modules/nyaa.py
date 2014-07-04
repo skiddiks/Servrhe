@@ -34,7 +34,7 @@ class Module(object):
         nyaagent = CookieAgent(self.master.agent, cookielib.CookieJar())
 
         if user is None or passwd is None:
-            raise exception(u"No TT username or password in config")
+            raise exception(u"No NT username or password in config")
 
         response = yield nyaagent.request("POST","http://www.nyaa.se/?page=login",
             Headers({'Content-Type': ['application/x-www-form-urlencoded']}),
