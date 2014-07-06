@@ -32,7 +32,7 @@ def unpackScript(exception, folder, filename):
             with open(os.path.join(folder, base), "w") as f:
                 f.write(gf.read())
         return unpackScript(exception, folder, base)
-        
+
     else:
         return filename
 
@@ -243,7 +243,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, no_chapte
     irc.msg(channel, u"Determined final filename to be {}".format(fname))
 
     # Step 9: Make that xdelta
-    xdelta = script.replace(".ass",".xdelta")
+    xdelta = script + ".xdelta"
     manager.dispatch("update", guid, u"Generating xdelta")
     out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("xdelta3"), args=["-f","-e","-s", os.path.join(guid, premux), os.path.join(guid, fname).encode("utf8"), os.path.join(guid, xdelta)], env=os.environ)
     if code != 0:
