@@ -26,7 +26,7 @@ class Module(object):
         pass
 
     @inlineCallbacks
-    def upload(self, folder, filename):
+    def upload(self, folder, filename, comment):
         exception = self.master.modules["commands"].exception
         user = yield self.config.get("user")
         passwd = yield self.config.get("pass")
@@ -46,12 +46,13 @@ class Module(object):
 
         name, twitter = random.choice(twitters.items())
         twitter_list = self.master.modules["utils"].rheinbowify('[b]Follow [u][url="https://twitter.com/RHExcelion"]@RHExcelion[/url][/u], [u][url="https://twitter.com/{}"]@{}[/url][/u], and the rest of Commie at [u][url="https://twitter.com/RHExcelion/commie-devs"]@Commie-Devs[/url][/u].[/b]'.format(twitter, name))
+        comment = "\n\n" + comment if comment else ""
 
         post_data = self.master.modules["multipart"].MultiPartProducer({"torrent": os.path.join(folder, filename)},{
             "name": filename,
             "catid": "1_37",
             "info": "#commie-subs@irc.rizon.net",
-            "description": "Visit us at [url]http://commiesubs.com[/url] for the latest updates and news.\n{}".format(twitter_list),
+            "description": "Visit us at [url]http://commiesubs.com[/url] for the latest updates and news.\n{}{}".format(twitter_list, comment),
             "remake": "0",
             "anonymous": "0",
             "hidden": "0",

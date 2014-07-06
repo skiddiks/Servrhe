@@ -200,7 +200,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     # Step 6: Upload torrent to Nyaa
     # Step 7: Get torrent link from Nyaa
     manager.dispatch("update", guid, u"Uploading torrent to Nyaa")
-    info_link, download_link = yield manager.master.modules["nyaa"].upload(guid, torrent.encode("utf8"))
+    info_link, download_link = yield manager.master.modules["nyaa"].upload(guid, torrent.encode("utf8"), comment)
     irc.notice(user, u"Uploaded to Nyaa")
 
     # Step 8: Create blog post
