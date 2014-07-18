@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup, UnicodeDammit
 from datetime import datetime
 from StringIO import StringIO
 
-import base64, codecs, cookielib, json, math, os, sha, shutil, time, urllib, urlparse, uuid, zlib
+import base64, codecs, cookielib, json, math, os, sha, shutil, time, urllib, urlparse, uuid, zlib, treq
 
 dependencies = ["config", "utils", "commands", "flv", "ftp", "showtimes"]
 
@@ -283,10 +283,12 @@ class Module(object):
                     self.log(u"RESPONSE CODE: {:d}".format(response.code))
                     raise exception(u"Failed to download FLV")
 
-                done = Deferred()
-                downloader = self.master.modules["ftp"].downloader(os.path.join(guid, filename.encode("utf8") + '.mp4'), done)
-                response.deliverBody(downloader)
-                yield done
+                try:
+                    with open(os.path.join(guid, filename.encode("utf8") + '.mp4'), "wb") as f:
+                        yield treq.collect(response, f.write)
+                except Exception as e:
+                    self.err()
+                    raise exception(u"Failed to download FLV")
 
                 mkvmergeargs = ["-o", os.path.join(guid, filename.encode("utf8") + ".mkv"), os.path.join(guid, filename.encode("utf8") + ".mp4")]
 
