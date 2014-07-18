@@ -287,7 +287,7 @@ class Module(object):
                     with open(os.path.join(guid, filename.encode("utf8") + '.mp4'), "wb") as f:
                         yield treq.collect(response, f.write)
                 except Exception as e:
-                    self.err()
+                    self.err(u"Failed to download FLV")
                     raise exception(u"Failed to download FLV")
 
                 mkvmergeargs = ["-o", os.path.join(guid, filename.encode("utf8") + ".mkv"), os.path.join(guid, filename.encode("utf8") + ".mp4")]
