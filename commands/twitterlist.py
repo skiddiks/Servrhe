@@ -9,4 +9,4 @@ def command(guid, manager, irc, channel, user):
 
     while twitters:
         o, twitters = twitters[:5], twitters[5:]
-        irc.msg(channel, u", ".join([u"{} -> @{}".format(k, v) for k, v in o]))
+        irc.notice(user, u", ".join([u"{} -> @{}".format(k, v) for k, v in o]))
