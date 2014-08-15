@@ -196,6 +196,8 @@ def command(guid, manager, irc, channel, user, show, previous = False, no_chapte
     #        f.write("".join(lines))
 
     # Step 6: MKVMerge
+    match = re.search("(v\d+)", script)
+    version = match.group(1) if match is not None else ""
     arguments = ["-o", os.path.join(guid, fname)]
     if not no_chapters:
         arguments.extend(["--no-chapters", "--chapters", os.path.join(guid, chapters)])
@@ -226,8 +228,6 @@ def command(guid, manager, irc, channel, user, show, previous = False, no_chapte
         manager.master.modules["crc"].patch(os.path.join(guid, fname), crc, 4232)
 
     # Step 8: Determine filename
-    match = re.search("(v\d+)", script)
-    version = match.group(1) if match is not None else ""
     try:
         with open(os.path.join(guid, fname), "rb") as f:
             crc = binascii.crc32(f.read()) & 0xFFFFFFFF
