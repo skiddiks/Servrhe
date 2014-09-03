@@ -30,7 +30,7 @@ class Module(object):
         blog = Proxy("http://commiesubs.com/xmlrpc.php")
         blog.queryFactory.noisy = False
         slug = re.search("([^/]+)/?$", show.blog).group(1)
-        categories = ["The Bread Lines"] #, "DxS a shit"]
+        categories = ["Releases"] #, "DxS a shit"]
         result = yield blog.callRemote("wp.getTerms", 0, user, passwd, "category")
         for term in result:
             if term["slug"] == slug:
