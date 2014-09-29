@@ -31,7 +31,7 @@ class Module(object):
         result = yield self.master.modules["db"].markovRankings()
         self.ranking = {}
         for rank, data in enumerate(result):
-            self.ranking[data["name"].lower()] = {
+            self.ranking[data["name"]] = {
                 "rank": rank+1,
                 "name": data["name"],
                 "words": data["words"]
