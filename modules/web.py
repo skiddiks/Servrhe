@@ -216,7 +216,7 @@ class Update(Base):
         branch = FORMATS["branch"].format(branch_name)
         tag = FORMATS["tag"].format(branch_name)
 
-        if "base_ref" in args:
+        if "base_ref" in args and args["base_ref"]:
             if "base_ref_name" in args:
                 base_ref_name = args["base_ref_name"]
             else:
