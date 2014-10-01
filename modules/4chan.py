@@ -14,7 +14,7 @@ class Module(object):
         self.threads = {}
         self.initial = True
         self.check_loop = LoopingCall(self.check)
-        self.check_loop.start(300)
+        #self.check_loop.start(300)
 
     def stop(self):
         if self.check_loop is not None and self.check_loop.running:
