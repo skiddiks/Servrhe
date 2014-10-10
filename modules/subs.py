@@ -85,6 +85,7 @@ class Module(object):
         return fonts
 
     def getFontName(self, folder, filename):
+        exception = self.master.modules["commands"].exception
         TAG_ID = 1
         TAG_DATA = []
         ntoffset, offset, records = None, None, None
@@ -101,6 +102,9 @@ class Module(object):
 
                 if ntoffset is not None:
                     break
+
+        if offset is None or ntoffset is None:
+            raise exception(u"Couldn't parse font metadata for file: {}".format(filename))
 
         storage = ntoffset + offset
         for j in range(records):
