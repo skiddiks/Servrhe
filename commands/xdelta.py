@@ -242,14 +242,14 @@ def command(guid, manager, irc, channel, user, show, previous = False, no_chapte
     else:
         nfname = u"[{}] {} - {:02d}{} [{:08X}].mkv".format(group, title, episode, version, crc)
     nfname = nfname.replace(u"/", u" \u2044 ")
-    os.rename(os.path.join(guid, fname), os.path.join(guid, nfname))
+    os.rename(os.path.join(guid, fname).encode("utf8"), os.path.join(guid, nfname).encode("utf8"))
     fname = nfname
     irc.msg(channel, u"Determined final filename to be {}".format(fname))
 
     # Step 9: Make that xdelta
     xdelta = script + ".xdelta"
     manager.dispatch("update", guid, u"Generating xdelta")
-    out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("xdelta3"), args=["-f","-e","-s", os.path.join(guid, premux), os.path.join(guid, fname).encode("utf8"), os.path.join(guid, xdelta)], env=os.environ)
+    out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("xdelta3"), args=["-f","-e","-s", os.path.join(guid, premux), os.path.join(guid, fname).encode("utf8"), os.path.join(guid, xdelta).encode("utf8")], env=os.environ)
     if code != 0:
         manager.log(out)
         manager.log(err)
