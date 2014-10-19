@@ -198,13 +198,13 @@ def command(guid, manager, irc, channel, user, show, previous = False, no_chapte
     # Step 6: MKVMerge
     match = re.search("(v\d+)", script)
     version = match.group(1) if match is not None else ""
-    arguments = ["-o", os.path.join(guid, fname)]
+    arguments = ["-o", os.path.join(guid, fname).encode("utf8")]
     if not no_chapters:
-        arguments.extend(["--no-chapters", "--chapters", os.path.join(guid, chapters)])
+        arguments.extend(["--no-chapters", "--chapters", os.path.join(guid, chapters).encode("utf8")])
     for font in fonts:
-        arguments.extend(["--attachment-mime-type", "application/x-truetype-font", "--attach-file", os.path.join(guid, font)])
-    arguments.extend([os.path.join(guid, premux), "--compression", "0:zlib", os.path.join(guid, script)])
-    arguments.extend(["--title", u"[{}] {} - {:02d}{}".format(group, title, episode, version)])
+        arguments.extend(["--attachment-mime-type", "application/x-truetype-font", "--attach-file", os.path.join(guid, font).encode("utf8")])
+    arguments.extend([os.path.join(guid, premux), "--compression", "0:zlib", os.path.join(guid, script).encode("utf8")])
+    arguments.extend(["--title", u"[{}] {} - {:02d}{}".format(group, title, episode, version).encode("utf8")])
     arguments.extend(["--language", "0:ja"])
     arguments.extend(["--language", "1:ja"])
     arguments.extend(["--language", "2:en"])
