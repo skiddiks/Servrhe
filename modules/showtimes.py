@@ -23,7 +23,9 @@ SHOW_ALIASES = {
     "pleins": "Toaru Hikuushi e no Koiuta",
     "cadence": "Yowamushi Pedal",
     "bikes": "Yowamushi Pedal",
-    "yowapeda": "Yowamushi Pedal"
+    "yowapeda": "Yowamushi Pedal",
+    "cadence 2": "Yowamushi Pedal Grande Road",
+    "bugs": "TERRA FORMARS"
 }
 
 class Module(object):
