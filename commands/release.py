@@ -87,7 +87,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     version = match.group(1) if match is not None else ""
 
     # Step 1e: Create preview image
-    preview = manager.master.modules["subs"].preview(guid, folder, complete, preview, webm, isRelease=True)
+    preview = yield manager.master.modules["subs"].preview(guid, folder, complete, preview, webm, isRelease=True)
     
     # Step 2: Create torrent
     irc.notice(user, u"Creating torrent")
