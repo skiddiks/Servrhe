@@ -2,6 +2,7 @@
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.error import ConnectionDone
 from twisted.internet.task import LoopingCall
 from twisted.web.xmlrpc import Proxy
 from bs4 import BeautifulSoup
@@ -42,7 +43,7 @@ class Module(object):
             self.err("Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"], error=e)
             post["retries"] += 1
             post["retryer"] = LoopingCall(self._retryCreatePost, guid)
-            post["retryer"].start(60)
+            post["retryer"].start(60, now=False)
             raise e
         else:
             del self.post_queue[guid]
@@ -53,6 +54,8 @@ class Module(object):
         if guid not in self.post_queue:
             return
         post = self.post_queue[guid]
+
+        self.log("Attempt #{:,d}: {} {:02d}{}", post["retries"], post["show"].name.english, post["episode"], post["version"])
 
         # Detect reloads
         if guid not in self.master.modules["blog"].post_queue:
