@@ -18,7 +18,7 @@ def command(guid, manager, irc, channel, user, action = None, arg1 = None, arg2 
 
     	if not guid:
     		irc.msg(channel, u".post cancel [guid]")
-		elif guid not in queue:
+		elif not guid in queue:
 			irc.msg(channel, u"Couldn't find {} in post queue. Check `.post list` to see what's in the queue".format(guid))
 		else:
 			post = queue[guid]
