@@ -10,7 +10,7 @@ def command(guid, manager, irc, channel, user, action = None, arg1 = None, arg2 
     queue = manager.master.modules["blog"].post_queue
 
     if action == "list":
-        posts = [u"[{}] {} {:02d}{}".format(g, p["show"].name.english, p["episode"], p["version"]) for g,p in queue.items]
+        posts = [u"[{}] {} {:02d}{}".format(g, p["show"].name.english, p["episode"], p["version"]) for g,p in queue.items()]
         irc.msg(channel, u"Pending posts: {}".format(u", ".join(posts)))
 
     elif action == "cancel":
