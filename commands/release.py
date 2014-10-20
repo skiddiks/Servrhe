@@ -19,7 +19,6 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     episode = show.episode.current + offset
     comment = u"{}: {}".format(user, comment) if comment is not None else None
     preview = preview.lower() if preview is not None else None
-    hovertext = None
 
     # Step 0: Clean up script reviews
     if show.id in manager.master.modules["subs"].show_scripts:
@@ -80,97 +79,8 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     version = match.group(1) if match is not None else ""
 
     # Step 1e: Create preview image
-    ftp = False
-    for ext in ["jpg", "jpeg", "png", "gif"]:
-        try:
-            manager.dispatch("update", guid, u"Determining last modified {} file".format(ext))
-            preview_image = yield manager.master.modules["ftp"].getLatest(folder, "*.{}".format(ext))
-            preview_ext = ext
-            manager.dispatch("update", guid, u"Downloading".format(preview_image))
-            yield manager.master.modules["ftp"].get(folder, preview_image, guid)
-            os.rename(os.path.join(guid, preview_image), os.path.join(guid, "preview.{}".format(ext)))
-            ftp = True
-            break
-        except manager.exception:
-            continue
-
-    if preview == "ftp" and not ftp:
-        raise manager.exception(u"Aborted releasing {}: Couldn't find preview image on FTP".format(show.name.english))
-
-    if not ftp or (preview is not None and preview != "ftp"):
-        preview_ext = "jpg"
-
-        if preview is None or "+" in preview:
-            manager.dispatch("update", guid, u"Extracting chapters from release")
-            out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, complete).encode("utf8")], env=os.environ)
-
-            if code != 0:
-                manager.log(out)
-                manager.log(err)
-                raise manager.exception(u"Aborted releasing {}: Couldn't extract chapters.".format(show.name.english))
-
-            chapters = [l.partition("=")[2].lower() for l in out.split("\n")]
-            chapters = [(n, {"start": manager.master.modules["subs"].timeToInt(t), "length": 0}) for n,t in zip(chapters[1::2], chapters[0::2])]
-            for a, b in zip(chapters, chapters[1:]):
-                a[1]["length"] = b[1]["start"] - a[1]["start"]
-            chapters = dict(chapters)
-
-            if not chapters:
-                raise manager.exception(u"Aborted releasing {}: No chapters to make a preview image from".format(show.name.english))
-
-        if preview is None:
-            time = chapters["part a"]["start"] if "part a" in chapters else sorted(chapters.values(), key=lambda x: x["length"], reverse=True)[0]["start"]
-            time += 30000
-        elif "." not in preview:
-            conversion = float(24000) / 1001
-            time = int(int(preview) / conversion * 1000)
-        elif "+" not in preview:
-            time = manager.master.modules["subs"].timeToInt(preview)
-        else:
-            chapter, _, offset = preview.partition("+")
-            if chapter not in chapters:
-                raise manager.exception(u"Aborted releasing {}: Requested chapter \"{}\" not found".format(show.name.english, chapter))
-            time = chapters[chapter]["start"] + manager.master.modules["subs"].timeToInt(offset)
-
-        if time > 20000:
-            rough_time = manager.master.modules["subs"].intToTime(time - 20000, short=True)
-            fine_time = "20.000"
-        else:
-            rough_time = "0.000"
-            fine_time = manager.master.modules["subs"].intToTime(time, short=True)
-
-        extraargs = []
-        if preview is None:
-            extraargs.extend(["-vf", "select='eq(pict_type,I)'", "-vsync", "2"])
-        #extraargs.extend(["-vf", "colormatrix=bt709:bt601"])
-
-        manager.dispatch("update", guid, u"Generating preview image")
-        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("avconv"), args=["-ss", rough_time, "-i", os.path.join(guid, complete).encode("utf8"), "-ss", fine_time] + extraargs + ["-vframes", "1", os.path.join(guid, "preview.{}".format(preview_ext))], env=os.environ)
-
-        if code != 0:
-            manager.log(out)
-            manager.log(err)
-            raise manager.exception(u"Aborted releasing {}: Couldn't generate preview image.".format(show.name.english))
-
-        manager.dispatch("update", guid, u"Extracting script from release")
-        out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["tracks", os.path.join(guid, complete).encode("utf8"), "2:{}".format(os.path.join(guid, "script.ass"))], env=os.environ)
-        if code != 0:
-            manager.log(out)
-            manager.log(err)
-            raise manager.exception(u"Aborted releasing {}: Couldn't extract script.".format(show.name.english))
-
-        hovertext = manager.master.modules["subs"].getBestLine(guid, "script.ass", time)
-
-    # Revenge on DxS
-    if show.id == 116: # Highschool DxD
-        hovertext = "DxS a shit"
-
-    try:
-        with open(os.path.join(guid, "preview.{}".format(preview_ext)), "rb") as f:
-            preview = {"name": (u"{}.{}".format(complete, preview_ext)).encode("utf8"), "data": f.read()}
-    except IOError:
-        raise manager.exception(u"Aborted releasing {}: Couldn't open preview image.".format(show.name.english))
-
+    preview = manager.master.modules["subs"].preview(guid, folder, complete, preview, webm, isRelease=True)
+    
     # Step 2: Create torrent
     irc.notice(user, u"Creating torrent")
     try:
@@ -205,12 +115,10 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
 
     # Step 8: Create blog post
     try:
-        manager.dispatch("update", guid, u"Uploading preview image to blog")
-        img_link = yield manager.master.modules["blog"].uploadImage(**preview)
         manager.dispatch("update", guid, u"Creating blog post")
-        yield manager.master.modules["blog"].createPost(show, episode, version, info_link, img_link, comment, hovertext)
+        yield manager.master.modules["blog"].createPost(show, episode, version, info_link, preview["link"], comment, preview["text"])
     except:
-        irc.msg(channel, u"Couldn't create blog post. Continuing to release {} regardless.".format(show.name.english))
+        irc.msg(channel, u"Couldn't create blog post. We'll try again until it works! Continuing to release {} regardless.".format(show.name.english))
     else:
         irc.notice(user, u"Created blog post")
 
