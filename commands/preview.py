@@ -44,4 +44,4 @@ def command(guid, manager, irc, channel, user, show, previous = False, preview =
 
     irc.msg(channel, "Preview image: {}".format(preview["link"]))
 
-    returnValue(img_link)
+    returnValue(preview["link"])
