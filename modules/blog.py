@@ -5,7 +5,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.xmlrpc import Proxy
 from bs4 import BeautifulSoup
-import xmlrpclib, re
+import xmlrpclib, re, uuid
 
 dependencies = ["config", "commands"]
 
