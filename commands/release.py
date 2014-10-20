@@ -8,7 +8,7 @@ config = {
     "help": ".release [show name] (--previous) (--comment=TEXT) (--preview=TIME) || Releases the show by uploading to DCC bots, the seedbox, Nyaa, TT, and creating the blog post. Requires a .mkv and .xdelta. Use --previous for releasing a v2. See .man preview for --preview help.",
 }
 
-def command(guid, manager, irc, channel, user, show, previous = False, comment = None, preview = None):
+def command(guid, manager, irc, channel, user, show, previous = False, comment = None, preview = None, webm = None):
     show = manager.master.modules["showtimes"].resolve(show)
     if not show.folder.ftp:
         raise manager.exception(u"No FTP folder given for {}".format(show.name.english))
@@ -19,6 +19,14 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     episode = show.episode.current + offset
     comment = u"{}: {}".format(user, comment) if comment is not None else None
     preview = preview.lower() if preview is not None else None
+    
+    if webm is True:
+        webm = 3.0 # Defaults to 3 seconds
+    elif webm:
+        try:
+            webm = float(webm)
+        except:
+            raise manager.exception(u"--webm must be the number of seconds the preview should last for. Got \"{}\" instead.".format(webm))
 
     # Step 0: Clean up script reviews
     if show.id in manager.master.modules["subs"].show_scripts:
