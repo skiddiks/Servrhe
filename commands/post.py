@@ -7,7 +7,7 @@ config = {
 
 def command(guid, manager, irc, channel, user, action = None, arg1 = None, arg2 = None, arg3 = None, arg4 = None, arg5 = None, arg6 = None):
     action = action.lower() if action else ""
-    queue = manager.master.modules["subs"].post_queue
+    queue = manager.master.modules["blog"].post_queue
 
     if action == "list":
         posts = [u"[{}] {} {:02d}{}".format(g, p["show"].name.english, p["episode"], p["version"]) for g,p in queue.items]
