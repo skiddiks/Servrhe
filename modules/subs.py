@@ -219,26 +219,35 @@ class Module(object):
 
             if webm:
                 preview_ext = "webm"
-                out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("avconv"), args=[
+                args = [
                     "-y", # Overwrite files with the same name
                     "-ss", rough_time,
                     "-i", os.path.join(guid, premux),
                     "-ss", fine_time,
                     "-t", "{:0.3f}".format(webm),
-                    #"-threads", "4", # Speed up encoding with 4 threads
-                    "-c:v", "libvpx", # Use standard webm video codec
                     "-an", # Disable audio
-                    "-b:v", "800K", # 800kbps is plenty
-                    "-vf", "scale=-1:360", # 360p is plenty
-                    os.path.join(guid, "preview.{}".format(preview_ext))
-                ], env=os.environ)
+                    "-sn", # Disable subs
+                    "-f", "webm", # Yes, this is webm
+                    "-c:v", "libvpx", # Use standard webm video codec
+                    "-b:v", "1M", # 1mbps is plenty
+                    "-vf", "scale=-1:720", # 720p
+                    "-quality", "best", # "best" quality
+                    "-threads", "0", # Speed up encoding
+                    "-cpu-used", "0", # IDFK
+                    "-slices", "8", # Black magic
+                    "-auto-alt-ref", "1" # ????????
+                ]
+                out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("ffmpeg"), args=args+["-pass", "1", "/dev/null"], env=os.environ)
+                if code == 0:
+                    out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("ffmpeg"), args=args+["-pass", "2", os.path.join(guid, "preview.{}".format(preview_ext))], env=os.environ)
+                    
             else:
                 preview_ext = "jpg"
                 extraargs = []
                 if preview is None:
                     extraargs.extend(["-vf", "select='eq(pict_type,I)'", "-vsync", "2"])
                 #extraargs.extend(["-vf", "colormatrix=bt709:bt601"])
-                out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("avconv"), args=[
+                out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("ffmpeg"), args=[
                     "-y", # Overwrite files with the same name
                     "-ss", rough_time,
                     "-i", os.path.join(guid, premux),
