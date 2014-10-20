@@ -28,9 +28,9 @@ def command(guid, manager, irc, channel, user, action = None, arg1 = None, arg2 
 
     elif action == "create":
         show_name, version, img_link, hovertext, info_link, comment = arg1, arg2, arg3, arg4, arg5, arg6
-        if version.startswith("http"):
+        if version and version.startswith("http"):
             img_link, hovertext, info_link, comment = version, img_link, hovertext, info_link
-        if hovertext.startswith("http"):
+        if hovertext and hovertext.startswith("http"):
             info_link, comment = hovertext, info_link
 
         show = manager.master.modules["showtimes"].resolve(show_name)
