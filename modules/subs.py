@@ -136,6 +136,7 @@ class Module(object):
         dispatch = self.master.modules["commands"].dispatch
         exception = self.master.modules["commands"].exception
         ftp = False
+        time = None
 
         if webm and webm > 60:
             raise exception(u"Max duration of a webm preview is 60 seconds. You asked for {:.03f} seconds.".format(webm))
@@ -223,7 +224,7 @@ class Module(object):
                     "-i", os.path.join(guid, premux),
                     "-ss", fine_time,
                     "-t", "{:0.3f}".format(webm),
-                    "-threads", "4", # Speed up encoding with 4 threads
+                    #"-threads", "4", # Speed up encoding with 4 threads
                     "-c:v", "libvpx", # Use standard webm video codec
                     "-an", # Disable audio
                     "-b:v", "800K", # 800kbps is plenty
@@ -250,9 +251,26 @@ class Module(object):
                 self.log(err)
                 raise exception(u"Aborted previewing {}: Couldn't generate preview image.".format(show.name.english))
 
+        try:
+            with open(os.path.join(guid, "preview.{}".format(preview_ext)), "rb") as f:
+                preview = {"name": (u"{}.{}".format(premux, preview_ext)).encode("utf8"), "data": f.read()}
+        except IOError:
+            raise exception(u"Aborted previewing {}: Couldn't open preview image.".format(show.name.english))
+
+        dispatch("update", guid, u"Uploading {} to blog".format(preview["name"]))
+        img_link = yield self.master.modules["blog"].uploadImage(**preview)
+
+        dispatch("update", guid, u"Uploading preview image to FTP")
+        yield self.master.modules["ftp"].put(guid, u"preview.{}".format(preview_ext), folder)
+        yield self.master.modules["ftp"].upload(folder)
+
+        if time is None:
+            hovertext = None
+
+        else:
             if isRelease:     
                 dispatch("update", guid, u"Extracting script from release")
-                out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("mkvextract"), args=["tracks", os.path.join(guid, complete).encode("utf8"), "2:{}".format(os.path.join(guid, "script.ass"))], env=os.environ)
+                out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("mkvextract"), args=["tracks", os.path.join(guid, premux).encode("utf8"), "2:{}".format(os.path.join(guid, "script.ass"))], env=os.environ)
                 if code != 0:
                     self.log(out)
                     self.log(err)
@@ -268,21 +286,7 @@ class Module(object):
                 except:
                     script = None
 
-            if script is not None:
-                hovertext = self.master.modules["subs"].getBestLine(guid, script, time)
-
-        try:
-            with open(os.path.join(guid, "preview.{}".format(preview_ext)), "rb") as f:
-                preview = {"name": (u"{}.{}".format(premux, preview_ext)).encode("utf8"), "data": f.read()}
-        except IOError:
-            raise exception(u"Aborted previewing {}: Couldn't open preview image.".format(show.name.english))
-
-        dispatch("update", guid, u"Uploading {} to blog".format(preview["name"]))
-        img_link = yield self.master.modules["blog"].uploadImage(**preview)
-
-        dispatch("update", guid, u"Uploading preview image to FTP")
-        yield self.master.modules["ftp"].put(guid, u"preview.{}".format(preview_ext), folder)
-        yield self.master.modules["ftp"].upload(folder)
+            hovertext = self.master.modules["subs"].getBestLine(guid, script, time) if script is not None else None
 
         returnValue({"text": hovertext, "link": img_link})
 
