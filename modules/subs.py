@@ -133,24 +133,25 @@ class Module(object):
 
     @inlineCallbacks
     def preview(self, guid, folder, premux, preview, webm, isRelease = False):
+        dispatch = self.master.modules["commands"].dispatch
         exception = self.master.modules["commands"].exception
         ftp = False
 
         for ext in ["webm", "jpg", "jpeg", "png", "gif"]:
             try:
-                manager.dispatch("update", guid, u"Determining last modified {} file".format(ext))
-                preview_image = yield manager.master.modules["ftp"].getLatest(folder, "*.{}".format(ext))
+                dispatch("update", guid, u"Determining last modified {} file".format(ext))
+                preview_image = yield self.master.modules["ftp"].getLatest(folder, "*.{}".format(ext))
                 preview_ext = ext
-                manager.dispatch("update", guid, u"Downloading".format(preview_image))
-                yield manager.master.modules["ftp"].get(folder, preview_image, guid)
+                dispatch("update", guid, u"Downloading".format(preview_image))
+                yield self.master.modules["ftp"].get(folder, preview_image, guid)
                 os.rename(os.path.join(guid, preview_image), os.path.join(guid, "preview.{}".format(ext)))
                 ftp = True
                 break
-            except manager.exception:
+            except exception:
                 continue
 
         if preview == "ftp" and not ftp:
-            raise manager.exception(u"Aborted releasing {}: Couldn't find preview image on FTP".format(show.name.english))
+            raise exception(u"Aborted releasing {}: Couldn't find preview image on FTP".format(show.name.english))
 
         if not ftp or (preview is not None and preview != "ftp"):
             if preview is None or "+" in preview:
@@ -158,32 +159,32 @@ class Module(object):
                     if isRelease:
                         raise exception(u"Skipping downloading XML file")
 
-                    manager.dispatch("update", guid, u"Determining last modified xml file")
-                    chapters = yield manager.master.modules["ftp"].getLatest(folder, "*.xml")
+                    dispatch("update", guid, u"Determining last modified xml file")
+                    chapters = yield self.master.modules["ftp"].getLatest(folder, "*.xml")
 
-                    manager.dispatch("update", guid, u"Downloading {}".format(chapters))
-                    yield manager.master.modules["ftp"].get(folder, chapters, guid)
+                    dispatch("update", guid, u"Downloading {}".format(chapters))
+                    yield self.master.modules["ftp"].get(folder, chapters, guid)
                     with open(os.path.join(guid, chapters), "r") as f:
                         soup = BeautifulSoup(f.read(), "xml", from_encoding="utf8")
                     out = "\n".join(["CHAPTER{0:02d}={1}\nCHAPTER{0:02d}NAME={2}".format(index + 1, e.find("ChapterTimeStart").string.encode("utf8"), e.find("ChapterString").string.encode("utf8")) for index, e in enumerate(soup("ChapterAtom"))])
 
                 except Exception as e:
-                    manager.dispatch("update", guid, u"Extracting chapters from premux")
-                    out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, premux)], env=os.environ)
+                    dispatch("update", guid, u"Extracting chapters from premux")
+                    out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, premux)], env=os.environ)
 
                     if code != 0:
-                        manager.log(out)
-                        manager.log(err)
-                        raise manager.exception(u"Aborted previewing {}: Couldn't extract chapters.".format(show.name.english))
+                        self.log(out)
+                        self.log(err)
+                        raise exception(u"Aborted previewing {}: Couldn't extract chapters.".format(show.name.english))
 
                 chapters = [l.partition("=")[2].lower() for l in out.split("\n")]
-                chapters = [(n, {"start": manager.master.modules["subs"].timeToInt(t), "length": 0}) for n,t in zip(chapters[1::2], chapters[0::2])]
+                chapters = [(n, {"start": self.master.modules["subs"].timeToInt(t), "length": 0}) for n,t in zip(chapters[1::2], chapters[0::2])]
                 for a, b in zip(chapters, chapters[1:]):
                     a[1]["length"] = b[1]["start"] - a[1]["start"]
                 chapters = dict(chapters)
 
                 if not chapters:
-                    raise manager.exception(u"Aborted previewing {}: No chapters to make a preview image from.".format(show.name.english))
+                    raise exception(u"Aborted previewing {}: No chapters to make a preview image from.".format(show.name.english))
 
             if preview is None:
                 time = chapters["part a"]["start"] if "part a" in chapters else sorted(chapters.values(), key=lambda x: x["length"], reverse=True)[0]["start"]
@@ -192,29 +193,29 @@ class Module(object):
                 conversion = float(24000) / 1001
                 time = int(int(preview) / conversion * 1000)
             elif "+" not in preview:
-                time = manager.master.modules["subs"].timeToInt(preview)
+                time = self.master.modules["subs"].timeToInt(preview)
             else:
                 chapter, _, offset = preview.partition("+")
                 if chapter not in chapters:
-                    raise manager.exception(u"Aborted previewing {}: Requested chapter \"{}\" not found".format(show.name.english, chapter))
-                time = chapters[chapter]["start"] + manager.master.modules["subs"].timeToInt(offset)
+                    raise exception(u"Aborted previewing {}: Requested chapter \"{}\" not found".format(show.name.english, chapter))
+                time = chapters[chapter]["start"] + self.master.modules["subs"].timeToInt(offset)
 
             if webm and preview is None:
-                rough_time = manager.master.modules["subs"].intToTime(time, short=True)
+                rough_time = self.master.modules["subs"].intToTime(time, short=True)
                 fine_time = "0.000"
             elif time > 20000:
-                rough_time = manager.master.modules["subs"].intToTime(time - 20000, short=True)
+                rough_time = self.master.modules["subs"].intToTime(time - 20000, short=True)
                 fine_time = "20.000"
             else:
                 rough_time = "0.000"
-                fine_time = manager.master.modules["subs"].intToTime(time, short=True)
+                fine_time = self.master.modules["subs"].intToTime(time, short=True)
 
 
-            manager.dispatch("update", guid, u"Generating preview image")
+            dispatch("update", guid, u"Generating preview image")
 
             if webm:
                 preview_ext = "webm"
-                out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("avconv"), args=[
+                out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("avconv"), args=[
                     "-ss", rough_time,
                     "-i", os.path.join(guid, premux),
                     "-ss", fine_time,
@@ -232,7 +233,7 @@ class Module(object):
                 if preview is None:
                     extraargs.extend(["-vf", "select='eq(pict_type,I)'", "-vsync", "2"])
                 #extraargs.extend(["-vf", "colormatrix=bt709:bt601"])
-                out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("avconv"), args=[
+                out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("avconv"), args=[
                     "-ss", rough_time,
                     "-i", os.path.join(guid, premux),
                     "-ss", fine_time
@@ -242,43 +243,43 @@ class Module(object):
                 ], env=os.environ)
 
             if code != 0:
-                manager.log(out)
-                manager.log(err)
-                raise manager.exception(u"Aborted previewing {}: Couldn't generate preview image.".format(show.name.english))
+                self.log(out)
+                self.log(err)
+                raise exception(u"Aborted previewing {}: Couldn't generate preview image.".format(show.name.english))
 
             if isRelease:     
-                manager.dispatch("update", guid, u"Extracting script from release")
-                out, err, code = yield getProcessOutputAndValue(manager.master.modules["utils"].getPath("mkvextract"), args=["tracks", os.path.join(guid, complete).encode("utf8"), "2:{}".format(os.path.join(guid, "script.ass"))], env=os.environ)
+                dispatch("update", guid, u"Extracting script from release")
+                out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("mkvextract"), args=["tracks", os.path.join(guid, complete).encode("utf8"), "2:{}".format(os.path.join(guid, "script.ass"))], env=os.environ)
                 if code != 0:
-                    manager.log(out)
-                    manager.log(err)
+                    self.log(out)
+                    self.log(err)
                     script = None
                 else:
                     script = "script.ass"
             else:
                 try:
-                    manager.dispatch("update", guid, u"Determining last modified ass file")
-                    script = yield manager.master.modules["ftp"].getLatest(folder, "*.ass")
-                    manager.dispatch("update", guid, u"Downloading {}".format(script))
-                    yield manager.master.modules["ftp"].get(folder, script, guid)
+                    dispatch("update", guid, u"Determining last modified ass file")
+                    script = yield self.master.modules["ftp"].getLatest(folder, "*.ass")
+                    dispatch("update", guid, u"Downloading {}".format(script))
+                    yield self.master.modules["ftp"].get(folder, script, guid)
                 except:
                     script = None
 
             if script is not None:
-                hovertext = manager.master.modules["subs"].getBestLine(guid, script, time)
+                hovertext = self.master.modules["subs"].getBestLine(guid, script, time)
 
         try:
             with open(os.path.join(guid, "preview.{}".format(preview_ext)), "rb") as f:
                 preview = {"name": (u"{}.{}".format(premux, preview_ext)).encode("utf8"), "data": f.read()}
         except IOError:
-            raise manager.exception(u"Aborted previewing {}: Couldn't open preview image.".format(show.name.english))
+            raise exception(u"Aborted previewing {}: Couldn't open preview image.".format(show.name.english))
 
-        manager.dispatch("update", guid, u"Uploading {} to blog".format(preview["name"]))
-        img_link = yield manager.master.modules["blog"].uploadImage(**preview)
+        dispatch("update", guid, u"Uploading {} to blog".format(preview["name"]))
+        img_link = yield self.master.modules["blog"].uploadImage(**preview)
 
-        manager.dispatch("update", guid, u"Uploading preview image to FTP")
-        yield manager.master.modules["ftp"].put(guid, u"preview.{}".format(preview_ext), folder)
-        yield manager.master.modules["ftp"].upload(folder)
+        dispatch("update", guid, u"Uploading preview image to FTP")
+        yield self.master.modules["ftp"].put(guid, u"preview.{}".format(preview_ext), folder)
+        yield self.master.modules["ftp"].upload(folder)
 
         returnValue({"text": hovertext, "link": img_link})
 
