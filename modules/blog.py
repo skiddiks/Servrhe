@@ -39,7 +39,7 @@ class Module(object):
         try:
             result = yield self._createPost(**post)
         except Exception as e:
-            self.err("Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"] error=e)
+            self.err("Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"], error=e)
             post["retries"] += 1
             post["retryer"] = LoopingCall(self._retryCreatePost, guid)
             post["retryer"].start(60)
@@ -64,7 +64,7 @@ class Module(object):
         try:
             self._createPost(**post)
         except Exception as e:
-            self.err("Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"] error=e)
+            self.err("Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"], error=e)
             post["retries"] += 1
         else:
             post["retryer"].stop()
