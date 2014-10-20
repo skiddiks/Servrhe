@@ -62,7 +62,7 @@ class Module(object):
             return
 
         try:
-            self._createPost(**post)
+            yield self._createPost(**post)
         except Exception as e:
             self.err("Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"], error=e)
             post["retries"] += 1
