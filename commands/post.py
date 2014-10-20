@@ -33,14 +33,14 @@ def command(guid, manager, irc, channel, user, action = None, arg1 = None, arg2 
         if hovertext and hovertext.startswith("http"):
             info_link, comment = hovertext, info_link
 
+        if not show_name or not img_link or not info_link:
+            raise manager.exception(u".post create [show name] (version) [preview URL] (preview text) [torrent URL] (comment)")
+
         show = manager.master.modules["showtimes"].resolve(show_name)
         episode = show.episode.current
         version = version if version else ""
         hovertext = hovertext if hovertext else ""
         comment = u"{}: {}".format(user, comment) if comment else ""
-
-        if not img_link or not info_link:
-            raise manager.exception(u".post create [show name] (version) [preview URL] (preview text) [torrent URL] (comment)")
 
         try:
             link = yield manager.master.modules["blog"].createPost(show, episode, version, info_link, img_link, comment, hovertext)
