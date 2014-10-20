@@ -2,6 +2,7 @@
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.task import LoopingCall
 from twisted.web.xmlrpc import Proxy
 from bs4 import BeautifulSoup
 import xmlrpclib, re
@@ -12,12 +13,65 @@ class Module(object):
     def __init__(self, master):
         self.master = master
         self.config = master.modules["config"].interface("blog")
+        self.post_queue = {}
 
     def stop(self):
         pass
 
     @inlineCallbacks
-    def createPost(self, show, episode, version, info_link, img_link, comment = None, hovertext = None, retries = 0):
+    def createPost(self, show, episode, version, info_link, img_link, comment = None, hovertext = None, retries = 0, retryer = None):
+        guid = uuid.uuid4().hex[0:8]
+        while guid in self.post_queue:
+            guid = uuid.uuid4().hex[0:8]
+        self.post_queue[guid] = {
+            "show": show,
+            "episode": episode,
+            "version": version,
+            "info_link": info_link,
+            "img_link": img_link,
+            "comment": comment,
+            "hovertext": hovertext,
+            "retries": retries,
+            "retryer": None
+        }
+        post = self.post_queue[guid]
+
+        try:
+            result = yield self._createPost(**post)
+        except Exception as e:
+            self.err("Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"] error=e)
+            post["retries"] += 1
+            post["retryer"] = LoopingCall(self._retryCreatePost, guid)
+            post["retryer"].start(60)
+            raise e
+        else:
+            del self.post_queue[guid]
+            returnValue(result)
+
+    @inlineCallbacks
+    def _retryCreatePost(self, guid):
+        if guid not in self.post_queue:
+            return
+        post = self.post_queue[guid]
+
+        # Detect reloads
+        if guid not in self.master.modules["blog"].post_queue:
+            post["retryer"].stop()
+            self.master.modules["blog"].createPost(**post)
+            del self.post_queue[guid]
+            return
+
+        try:
+            self._createPost(**post)
+        except Exception as e:
+            self.err("Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"] error=e)
+            post["retries"] += 1
+        else:
+            post["retryer"].stop()
+            del self.post_queue[guid]
+
+    @inlineCallbacks
+    def _createPost(self, show, episode, version, info_link, img_link, comment = None, hovertext = None, retries = 0, retryer = None):
         exception = self.master.modules["commands"].exception
 
         end = " END" if episode == show.episode.total else ""
@@ -42,7 +96,7 @@ class Module(object):
                 categories.append(term["name"])
 
         try:
-            yield blog.callRemote("wp.newPost",
+            data = yield blog.callRemote("wp.newPost",
                 0, # Blog ID
                 user, # Username
                 passwd, # Password
@@ -55,14 +109,15 @@ class Module(object):
                     "terms_names": {"category": categories}
                 }
             )
-        except:
-            if retries < 60:
-                retries += 1
+            self.log("{!r}", data)
+            if retries:
+                self.master.modules["irc"].msg(u"#commie-staff", u"Created blog post ({}): {!r}".format(title, data))
+        except Exception as e:
+            if retries:
                 self.master.modules["irc"].msg(u"#commie-staff", u"Failed to make blog post ({}), retrying in a minute. This was attempt #{:,d}".format(title, retries))
-                reactor.callLater(60, self.createPost, show, episode, version, info_link, img_link, comment, hovertext, retries)
-            else:
-                self.master.modules["irc"].msg(u"#commie-staff", u"Failed to make blog post ({}). No more attempts will be made.".format(title))
-            raise exception(u"Couldn't publish blog post")
+            raise e
+
+        returnValue(data)
 
     @inlineCallbacks
     def uploadImage(self, name, data):
