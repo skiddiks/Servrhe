@@ -137,6 +137,9 @@ class Module(object):
         exception = self.master.modules["commands"].exception
         ftp = False
 
+        if webm and webm > 60:
+            raise exception(u"Max duration of a webm preview is 60 seconds. You asked for {:.03f} seconds.".format(webm))
+
         for ext in ["webm", "jpg", "jpeg", "png", "gif"]:
             try:
                 dispatch("update", guid, u"Determining last modified {} file".format(ext))
