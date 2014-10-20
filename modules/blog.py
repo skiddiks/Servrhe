@@ -96,7 +96,7 @@ class Module(object):
                 categories.append(term["name"])
 
         try:
-            data = yield blog.callRemote("wp.newPost",
+            post_id = yield blog.callRemote("wp.newPost",
                 0, # Blog ID
                 user, # Username
                 passwd, # Password
@@ -109,15 +109,21 @@ class Module(object):
                     "terms_names": {"category": categories}
                 }
             )
-            self.log("{!r}", data)
-            if retries:
-                self.master.modules["irc"].msg(u"#commie-staff", u"Created blog post ({}): {!r}".format(title, data))
         except Exception as e:
             if retries:
                 self.master.modules["irc"].msg(u"#commie-staff", u"Failed to make blog post ({}), retrying in a minute. This was attempt #{:,d}".format(title, retries))
             raise e
 
-        returnValue(data)
+        try:
+            data = yield blog.callRemote("wp.getPost", 0, user, passwd, int(post_id))
+        except:
+            link = "<unknown url>"
+        else:
+            link = data["link"]
+
+        if retries:
+            self.master.modules["irc"].msg(u"#commie-staff", u"Created blog post ({}): {}".format(title, link))
+        returnValue(link)
 
     @inlineCallbacks
     def uploadImage(self, name, data):

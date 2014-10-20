@@ -19,7 +19,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     episode = show.episode.current + offset
     comment = u"{}: {}".format(user, comment) if comment is not None else None
     preview = preview.lower() if preview is not None else None
-    
+
     if webm is True:
         webm = 3.0 # Defaults to 3 seconds
     elif webm:
@@ -124,11 +124,11 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     # Step 8: Create blog post
     try:
         manager.dispatch("update", guid, u"Creating blog post")
-        yield manager.master.modules["blog"].createPost(show, episode, version, info_link, preview["link"], comment, preview["text"])
+        blog_link = yield manager.master.modules["blog"].createPost(show, episode, version, info_link, preview["link"], comment, preview["text"])
     except:
         irc.msg(channel, u"Couldn't create blog post. We'll try again until it works! Continuing to release {} regardless.".format(show.name.english))
     else:
-        irc.notice(user, u"Created blog post")
+        irc.msg(channel, u"Created blog post: {}".format(blog_link))
 
     # Step 9: Mark show finished on showtimes
     if not previous:

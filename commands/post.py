@@ -29,9 +29,9 @@ def command(guid, manager, irc, channel, user, action = None, arg1 = None, arg2 
     elif action == "create":
         show_name, version, img_link, hovertext, info_link, comment = arg1, arg2, arg3, arg4, arg5, arg6
         if version and version.startswith("http"):
-            img_link, hovertext, info_link, comment = version, img_link, hovertext, info_link
+            version, img_link, hovertext, info_link, comment = None, version, img_link, hovertext, info_link
         if hovertext and hovertext.startswith("http"):
-            info_link, comment = hovertext, info_link
+            hovertext, info_link, comment = None, hovertext, info_link
 
         if not show_name or not img_link or not info_link:
             raise manager.exception(u".post create [show name] (version) [preview URL] (preview text) [torrent URL] (comment)")
@@ -47,7 +47,7 @@ def command(guid, manager, irc, channel, user, action = None, arg1 = None, arg2 
         except:
             irc.msg(channel, u"Failed to create blog post, but it'll be retried until it succeeds.")
         else:
-            irc.msg(channel, u"Created blog post")
+            irc.msg(channel, u"Created blog post: {}".format(link))
 
     else:
         irc.msg(channel, u"Usage: `.post ACTION`. Available actions: list, cancel")
