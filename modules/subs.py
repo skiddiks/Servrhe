@@ -220,6 +220,7 @@ class Module(object):
             if webm:
                 preview_ext = "webm"
                 out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("avconv"), args=[
+                    "-y", # Overwrite files with the same name
                     "-ss", rough_time,
                     "-i", os.path.join(guid, premux),
                     "-ss", fine_time,
@@ -238,6 +239,7 @@ class Module(object):
                     extraargs.extend(["-vf", "select='eq(pict_type,I)'", "-vsync", "2"])
                 #extraargs.extend(["-vf", "colormatrix=bt709:bt601"])
                 out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("avconv"), args=[
+                    "-y", # Overwrite files with the same name
                     "-ss", rough_time,
                     "-i", os.path.join(guid, premux),
                     "-ss", fine_time
