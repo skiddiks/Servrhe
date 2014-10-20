@@ -261,9 +261,7 @@ class Module(object):
         img_link = yield self.master.modules["blog"].uploadImage(**preview)
 
         dispatch("update", guid, u"Uploading preview image to FTP")
-        more_unique_preview_name = u"preview.{}.{}".format(uuid.uuid4().hex, preview_ext)
-        os.rename(os.path.join(guid, u"preview.{}".format(preview_ext)), os.path.join(guid, more_unique_preview_name))
-        yield self.master.modules["ftp"].put(guid, more_unique_preview_name, folder)
+        yield self.master.modules["ftp"].put(guid, u"preview.{}".format(preview_ext), folder)
         yield self.master.modules["ftp"].upload(folder)
 
         if time is None:
