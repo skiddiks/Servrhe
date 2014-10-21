@@ -157,7 +157,7 @@ class Module(object):
         if preview == "ftp" and not ftp:
             raise exception(u"Aborted releasing {}: Couldn't find preview image on FTP".format(show.name.english))
 
-        if not ftp or (preview is not None and preview != "ftp"):
+        if not ftp or (preview is not None and preview != "ftp") or (webm and preview_ext != "webm"):
             if preview is None or "+" in preview:
                 try:
                     if isRelease:
