@@ -65,8 +65,6 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
         if not complete:
             raise manager.exception(u"No completed file found after merging")
         complete = complete[0].decode("utf8")
-        manager.dispatch("update", guid, u"Found completed file: {}".format(complete))
-        manager.dispatch("update", guid, u"Found completed file (hexified): {}".format(complete.encode("hex")))
     else:
         raise manager.exception(u"Aborted releasing {}: Couldn't find premux and xdelta.".format(show.name.english))
 
