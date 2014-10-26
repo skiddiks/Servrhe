@@ -3,7 +3,7 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.utils import getProcessOutputAndValue
 from bs4 import BeautifulSoup
-import collections, os, re, struct, time
+import collections, os, re, struct, time, shutil
 
 dependencies = []
 
@@ -140,6 +140,11 @@ class Module(object):
 
         if webm and webm > 60:
             raise exception(u"Max duration of a webm preview is 60 seconds. You asked for {:.03f} seconds.".format(webm))
+
+        # Fuck unicode
+        if premux.encode("ascii", "ignore").decode("ascii") != premux:
+            shutil.copy(os.path.join(guid, premux).encode("utf8"), os.path.join(guid, "non_unicode_filename_hack.mkv"))
+            premux = "non_unicode_filename_hack.mkv"
 
         for ext in ["webm", "jpg", "jpeg", "png", "gif"]:
             try:
