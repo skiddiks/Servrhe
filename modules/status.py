@@ -31,7 +31,7 @@ class Module(object):
         self.running[guid]["status"] = status
         self.running[guid]["substatus"] = None
         self.running[guid]["updated"] = dt.utcnow()
-        self.log("{!r}", self.running[guid])
+        self.log(self.format(self.running[guid]))
 
     def commands_progress(self, guid, substatus):
         if guid not in self.running:

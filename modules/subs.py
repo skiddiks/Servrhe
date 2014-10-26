@@ -174,7 +174,7 @@ class Module(object):
 
                 except Exception as e:
                     dispatch("update", guid, u"Extracting chapters from premux")
-                    out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, premux).encode("utf8")], env=os.environ)
+                    out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, premux)], env=os.environ)
 
                     if code != 0:
                         self.log(out)
