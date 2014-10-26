@@ -43,6 +43,10 @@ class Module(object):
     def commands_finish(self, guid):
         if guid not in self.running:
             return
+        self.running[guid]["status"] = "COMPLETE"
+        self.running[guid]["substatus"] = None
+        self.running[guid]["updated"] = dt.utcnow()
+        self.log(self.format(self.running[guid]))
         del self.running[guid]
 
     def format(self, o):
