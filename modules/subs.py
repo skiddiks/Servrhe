@@ -161,7 +161,7 @@ class Module(object):
             if preview is None or "+" in preview:
                 try:
                     if isRelease:
-                        raise exception(u"Skipping downloading XML file")
+                        raise Exception(u"Skipping downloading XML file")
 
                     dispatch("update", guid, u"Determining last modified xml file")
                     chapters = yield self.master.modules["ftp"].getLatest(folder, "*.xml")
