@@ -40,7 +40,7 @@ class Module(object):
         try:
             result = yield self._createPost(**post)
         except Exception as e:
-            self.err("Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"], error=e)
+            self.err(u"Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"], error=e)
             post["retries"] += 1
             post["retryer"] = LoopingCall(self._retryCreatePost, guid)
             post["retryer"].start(60, now=False)
@@ -55,7 +55,7 @@ class Module(object):
             return
         post = self.post_queue[guid]
 
-        self.log("Attempt #{:,d}: {} {:02d}{}", post["retries"], post["show"].name.english, post["episode"], post["version"])
+        self.log(u"Attempt #{:,d}: {} {:02d}{}", post["retries"], post["show"].name.english, post["episode"], post["version"])
 
         # Detect reloads
         if guid not in self.master.modules["blog"].post_queue:
@@ -67,7 +67,7 @@ class Module(object):
         try:
             yield self._createPost(**post)
         except Exception as e:
-            self.err("Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"], error=e)
+            self.err(u"Failed to create blog post: {} {:02d}{}", post["show"].name.english, post["episode"], post["version"], error=e)
             post["retries"] += 1
         else:
             post["retryer"].stop()
@@ -78,7 +78,7 @@ class Module(object):
         exception = self.master.modules["commands"].exception
 
         end = " END" if episode == show.episode.total else ""
-        title = "{} {:02d}{}{}".format(show.name.english, episode, version, end)
+        title = u"{} {:02d}{}{}".format(show.name.english, episode, version, end).encode("utf8")
 
         img_type = 'video loop="loop" onmouseover="this.play()" onmouseout="this.pause()"' if img_link.endswith("webm") else 'img'
         img = '<{} src="{}" title="{}" style="width: 100%; border-radius: 5px;" />'.format(img_type, img_link, "" if hovertext is None else hovertext.replace('"', '&quot;'))
