@@ -288,8 +288,8 @@ class Module(object):
                 dispatch("update", guid, u"Extracting script from release")
                 out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("mkvextract"), args=["tracks", os.path.join(guid, premux).encode("utf8"), "2:{}".format(os.path.join(guid, "script.ass"))], env=os.environ)
                 if code != 0:
-                    self.log(out)
-                    self.log(err)
+                    self.log(u"{}", out.decode("utf8"))
+                    self.log(u"{}", err.decode("utf8"))
                     script = None
                 else:
                     script = "script.ass"

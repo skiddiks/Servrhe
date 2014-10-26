@@ -94,15 +94,21 @@ class Master(service.MultiService):
         self.log("Loaded modules: {}", ", ".join(sorted(self.modules.keys())))
 
     def log(self, message, *args, **kwargs):
-        cls = kwargs["cls"] if "cls" in kwargs else "Master"
-        func = kwargs["func"] if "func" in kwargs else inspect.stack()[1][3]
-        log.msg(message.format(*args).encode("utf8"), system="{}.{}".format(cls, func))
+        try:
+            cls = kwargs["cls"] if "cls" in kwargs else "Master"
+            func = kwargs["func"] if "func" in kwargs else inspect.stack()[1][3]
+            log.msg(message.format(*args).encode("utf8"), system="{}.{}".format(cls, func))
+        except:
+            log.err()
 
     def err(self, message=None, *args, **kwargs):
-        err = kwargs["error"] if "error" in kwargs else None
-        cls = kwargs["cls"] if "cls" in kwargs else "Master"
-        func = kwargs["func"] if "func" in kwargs else inspect.stack()[1][3]
-        log.err(err, message.format(*args).encode("utf8"), system="{}.{}".format(cls, func))
+        try:
+            err = kwargs["error"] if "error" in kwargs else None
+            cls = kwargs["cls"] if "cls" in kwargs else "Master"
+            func = kwargs["func"] if "func" in kwargs else inspect.stack()[1][3]
+            log.err(err, message.format(*args).encode("utf8"), system="{}.{}".format(cls, func))
+        except:
+            log.err()
 
     def dispatch(self, cls, name, *args):
         for module in self.modules.values():
