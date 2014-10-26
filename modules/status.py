@@ -31,20 +31,25 @@ class Module(object):
         self.running[guid]["status"] = status
         self.running[guid]["substatus"] = None
         self.running[guid]["updated"] = dt.utcnow()
+        self.log("{!r}", self.running[guid])
 
     def commands_progress(self, guid, substatus):
         if guid not in self.running:
             return
         self.running[guid]["substatus"] = u" ({})".format(substatus)
         self.running[guid]["updated"] = dt.utcnow()
+        self.log(self.format(self.running[guid]))
 
     def commands_finish(self, guid):
         if guid not in self.running:
             return
         del self.running[guid]
 
+    def format(self, o):
+        return u"[{}] `{}` by {} on {} is {}{}".format(o["guid"][0:6], o["command"], o["user"], o["channel"], o["status"], o["substatus"] if o["substatus"] else u"")
+
     def list(self):
-        return [u"[{}] `{}` by {} on {} is {}{}".format(o["guid"][0:6], o["command"], o["user"], o["channel"], o["status"], o["substatus"] if o["substatus"] else u"") for o in self.running.values()]
+        return [self.format(o) for o in self.running.values()]
 
     def cancel(self, guid):
         processes = [p for p in self.running.values() if p["guid"].startswith(guid)]
