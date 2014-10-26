@@ -72,7 +72,7 @@ class Module(object):
                 pieces.append(hashlib.sha1(chunk).digest())
                 p += piece_length
         data["info"]["pieces"] = "".join(pieces)
-        torrentname = filename + ".torrent"
+        torrentname = filename + u".torrent"
         with open(os.path.join(folder, torrentname).encode("utf8"), "wb") as f:
             f.write(bencode(data))
         return torrentname

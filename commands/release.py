@@ -94,7 +94,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     try:
         torrent = manager.master.modules["torrent"].makeTorrent(guid, complete)
     except:
-        manager.err("Making a torrent for {}", show.name.english)
+        manager.err(u"Making a torrent for {}", show.name.english)
         raise manager.exception(u"Aborted releasing {}: Couldn't create torrent.".format(show.name.english))
     irc.notice(user, u"Created torrent")
 
