@@ -78,7 +78,7 @@ class Module(object):
         exception = self.master.modules["commands"].exception
 
         end = " END" if episode == show.episode.total else ""
-        title = u"{} {:02d}{}{}".format(show.name.english, episode, version, end).encode("utf8")
+        title = u"{} {:02d}{}{}".format(show.name.english, episode, version, end)
 
         img_type = 'video loop="loop" onmouseover="this.play()" onmouseout="this.pause()"' if img_link.endswith("webm") else 'img'
         img = '<{} src="{}" title="{}" style="width: 100%; border-radius: 5px;" />'.format(img_type, img_link, "" if hovertext is None else hovertext.replace('"', '&quot;'))
@@ -107,7 +107,7 @@ class Module(object):
                     "post_type": "post",
                     "post_status": "publish",
                     "comment_status": "open",
-                    "post_title": title,
+                    "post_title": title.encode("utf8"),
                     "post_content": "{}<br><br><a href=\"{}\">Torrent</a>{}".format(img, info_link, comment),
                     "terms_names": {"category": categories}
                 }
