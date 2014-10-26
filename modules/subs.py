@@ -151,7 +151,7 @@ class Module(object):
                 os.rename(os.path.join(guid, preview_image), os.path.join(guid, "preview.{}".format(ext)))
                 ftp = True
                 break
-            except exception:
+            except:
                 continue
 
         if preview == "ftp" and not ftp:
