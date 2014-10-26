@@ -174,7 +174,7 @@ class Module(object):
 
                 except Exception as e:
                     dispatch("update", guid, u"Extracting chapters from premux")
-                    out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, premux)], env=os.environ)
+                    out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("mkvextract"), args=["chapters", "-s", os.path.join(guid, premux).encode("utf8")], env=os.environ)
 
                     if code != 0:
                         self.log(out)
@@ -222,7 +222,7 @@ class Module(object):
                 args = [
                     "-y", # Overwrite files with the same name
                     "-ss", rough_time,
-                    "-i", os.path.join(guid, premux),
+                    "-i", os.path.join(guid, premux).encode("utf8"),
                     "-ss", fine_time,
                     "-t", "{:0.3f}".format(webm),
                     "-an", # Disable audio
@@ -250,7 +250,7 @@ class Module(object):
                 out, err, code = yield getProcessOutputAndValue(self.master.modules["utils"].getPath("ffmpeg"), args=[
                     "-y", # Overwrite files with the same name
                     "-ss", rough_time,
-                    "-i", os.path.join(guid, premux),
+                    "-i", os.path.join(guid, premux).encode("utf8"),
                     "-ss", fine_time
                 ] + extraargs + [
                     "-vframes", "1",

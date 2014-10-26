@@ -70,7 +70,7 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
 
     # Step 1c: Verify CRC
     try:
-        with open(os.path.join(guid, complete), "rb") as f:
+        with open(os.path.join(guid, complete).encode("utf8"), "rb") as f:
             crc = binascii.crc32(f.read()) & 0xFFFFFFFF
     except:
         raise manager.exception(u"Aborted releasing {}: Couldn't open completed file for CRC verification.".format(show.name.english))
@@ -153,6 +153,6 @@ def command(guid, manager, irc, channel, user, show, previous = False, comment =
     irc.notice(user, u"Uploaded to XDCC")
 
     # Step 12: Add to Shiroi
-    shutil.move(os.path.join(guid, complete), os.path.join(u"/var/www/shiroi.fugiman.com/watch", complete))
+    shutil.move(os.path.join(guid, complete).encode("utf8"), os.path.join(u"/var/www/shiroi.fugiman.com/watch", complete).encode("utf8"))
 
     returnValue(info_link)

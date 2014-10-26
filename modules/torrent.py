@@ -60,8 +60,8 @@ class Module(object):
             "created by": "Servrhe",
             "encoding": "UTF-8"
         }
-        data["info"]["name"] = filename
-        data["info"]["length"] = size = os.path.getsize(os.path.join(folder, filename))
+        data["info"]["name"] = filename.encode("utf8")
+        data["info"]["length"] = size = os.path.getsize(os.path.join(folder, filename).encode("utf8"))
         # 1MB pieces if file > 512MB, else 512KB pieces
         data["info"]["piece length"] = piece_length = 2**20 if size > 512*1024*1024 else 2**19
         pieces = []
@@ -73,6 +73,6 @@ class Module(object):
                 p += piece_length
         data["info"]["pieces"] = "".join(pieces)
         torrentname = filename + ".torrent"
-        with open(os.path.join(folder, torrentname), "wb") as f:
+        with open(os.path.join(folder, torrentname).encode("utf8"), "wb") as f:
             f.write(bencode(data))
         return torrentname
