@@ -65,7 +65,7 @@ class Module(object):
         # 1MB pieces if file > 512MB, else 512KB pieces
         data["info"]["piece length"] = piece_length = 2**20 if size > 512*1024*1024 else 2**19
         pieces = []
-        with open(os.path.join(folder, filename), "rb") as f:
+        with open(os.path.join(folder, filename).encode("utf8"), "rb") as f:
             p = 0L
             while p < size:
                 chunk = f.read(min(piece_length, size - p))
