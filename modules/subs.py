@@ -617,7 +617,7 @@ class Module(object):
 
         lines.sort(key=lambda l: len(l["Text"]))
 
-        return re.sub("{[^}]*}", "", lines[0]["Text"]).replace("\N", " ") if lines else None
+        return re.sub("{[^}]*}", "", lines[0]["Text"]).replace("\N", " ").decode("utf8") if lines else None
 
 class SubParser(object):
     info_output = ("Title","PlayResX","PlayResY","ScaledBorderAndShadow","ScriptType","WrapStyle")
