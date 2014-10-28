@@ -38,10 +38,10 @@ def command(guid, manager, irc, channel, user, show, previous = False, preview =
     preview = yield manager.master.modules["subs"].preview(guid, folder, premux, preview, webm)
 
     if preview["text"] is not None:
-        irc.msg(channel, "Best line at given time: {}".format(preview["text"]))
+        irc.msg(channel, u"Best line at given time: {}".format(preview["text"]))
     else:
-        irc.msg(channel, "No lines spoken at given time")
+        irc.msg(channel, u"No lines spoken at given time")
 
-    irc.msg(channel, "Preview image: {}".format(preview["link"]))
+    irc.msg(channel, u"Preview image: {}".format(preview["link"]))
 
     returnValue(preview["link"])
