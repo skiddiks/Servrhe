@@ -9,7 +9,7 @@ config = {
 cooldowns = {}
 
 def command(guid, manager, irc, channel, user, name = None, seed = None, duwang = False):
-    irc.message(channel, u"Markov has been disabled due to being a dumb feature that I'm sick of dealing with")
+    irc.msg(channel, u"Markov has been disabled due to being a dumb feature that I'm sick of dealing with")
     return
 
     manager.dispatch("update", guid, u"Waiting on manager.getPermissions")
