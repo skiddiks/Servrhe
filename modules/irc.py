@@ -108,7 +108,7 @@ class Module(IRCClient):
     def signedOn(self):
         password = yield self.config.get("pass")
         if password:
-            self.msg("NickServ","IDENTIFY {}".format(password.encode("utf8")))
+            IRCClient.msg(self, "NickServ","IDENTIFY {}".format(password.encode("utf8")))
         self.factory.resetDelay()
         self.factory.connection = self
         self.nick_check = LoopingCall(self.nickCheck)
