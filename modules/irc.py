@@ -188,12 +188,12 @@ class Module(IRCClient):
 
     # Convience methods
     def msg(self, channel, message):
-        IRCClient.msg(self, channel.encode("utf8"), message.encode("utf8"))
+        IRCClient.msg(self, channel.encode("utf8"), (u"\u200B" + message).encode("utf8"))
         nick = normalize(self.nickname)
         self.dispatch("sent_message", channel, nick, message)
 
     def notice(self, user, message):
-        IRCClient.notice(self, user.encode("utf8"), message.encode("utf8"))
+        IRCClient.notice(self, user.encode("utf8"), (u"\u200B" + message).encode("utf8"))
         nick = normalize(self.nickname)
         self.dispatch("sent_notice", user, nick, message)
 
