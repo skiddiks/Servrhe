@@ -35,6 +35,23 @@ QUERIES = {
     "markov_backward_named": lambda f, w2, w3, n: f('SELECT `word1`, `word2`, `word3` FROM `markov` WHERE `normalized2` = %s AND `normalized3` = %s AND `user_id` = %s ORDER BY RAND() LIMIT 1', (w2, w3, n))
 }
 
+def cleanQueryArgs(func):
+    @functools.wraps(func)
+    def safeFunc(f, *args):
+        safeArgs = []
+        for arg in args:
+            if isinstance(arg, unicode):
+                safeArgs.append(arg.encode("utf8"))
+            else:
+                safeArgs.append(arg)
+        return func(f, *safeArgs)
+    return safeFunc
+
+for method, func in QUERIES.items():
+    QUERIES[method] = cleanQueryArgs(func)
+
+
+
 def createUser(cursor, name):
     QUERIES["create_user"](cursor.execute, name)
     user_id = cursor.lastrowid
