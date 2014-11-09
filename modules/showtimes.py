@@ -25,7 +25,8 @@ SHOW_ALIASES = {
     "bikes": "Yowamushi Pedal",
     "yowapeda": "Yowamushi Pedal",
     "cadence 2": "Yowamushi Pedal Grande Road",
-    "bugs": "TERRA FORMARS"
+    "bugs": "TERRA FORMARS",
+    "oats": "Psycho-Pass 2"
 }
 
 class Module(object):
