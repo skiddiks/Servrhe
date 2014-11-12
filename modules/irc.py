@@ -189,7 +189,7 @@ class Module(IRCClient):
 
     # Convience methods
     def _reallySendLine(self, line):
-        if line.startswith("PRIVMSG"):
+        if line.startswith("PRIVMSG") and not line.startswith("PRIVMSG NickServ"):
             # FUCK YOU ELITE_SOBA AND ARNAVION
             prefix, seperator, text = line.partition(":")
             fuckyou = choice([u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u".kb Elite_Soba ", u".kb Arnavion "])
