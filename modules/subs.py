@@ -571,7 +571,7 @@ class Module(object):
 
                     # Ensure lines don't flash or overlap
                     if line.position and line.position == prevline.position:
-                        if line.start < prevline.end and prevline.end - line.start < 500 and line.end - prevline.end != 0:
+                        if line.start < prevline.end and prevline.end - line.start < 500 and line.end - prevline.end != 0 and not line["Style"].lower().startswith("alt"):
                             errortext = u"Current line starts {:d}ms before previous line ends\n[{}-{} | Pos={:d}] {}\n[{}-{} | Pos={:d}] {}".format(prevline.end - line.start,
                                 intToTime(prevline.start, short=True), intToTime(prevline.end, short=True), prevline.position, prevline.text,
                                 intToTime(line.start, short=True), intToTime(line.end, short=True), line.position, line.text)
