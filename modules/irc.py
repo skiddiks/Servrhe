@@ -2,6 +2,7 @@
 
 from collections import namedtuple
 from bs4 import UnicodeDammit
+from random import choice
 from twisted.application import internet
 from twisted.internet import protocol
 from twisted.internet.defer import inlineCallbacks
@@ -187,8 +188,16 @@ class Module(IRCClient):
         self.dispatch("motd", motd)
 
     # Convience methods
+    def _reallySendLine(self, line):
+        if line.startswith("PRIVMSG"):
+            # FUCK YOU ELITE_SOBA AND ARNAVION
+            prefix, seperator, text = line.partition(":")
+            fuckyou = choice([u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u"\u200B", u".kb Elite_Soba ", u".kb Arnavion "])
+            line = (u"{}{}{}{}".format(prefix, seperator, fuckyou, text.decode("utf8"))).encode("utf8")
+        IRCClient._reallySendLine(self, line)
+
     def msg(self, channel, message):
-        IRCClient.msg(self, channel.encode("utf8"), (u"\u200B" + message).encode("utf8"))
+        IRCClient.msg(self, channel.encode("utf8"), message.encode("utf8")) # _reallySendLine handles this for us
         nick = normalize(self.nickname)
         self.dispatch("sent_message", channel, nick, message)
 
